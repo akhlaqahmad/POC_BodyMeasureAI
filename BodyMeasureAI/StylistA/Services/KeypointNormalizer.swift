@@ -23,8 +23,8 @@ final class KeypointNormalizer {
     private static let perspectiveCorrectionVertical: Double = 1.02
 
     /// Minimum confidence (0–1) for a keypoint to be used in scale or measurement.
-    /// POC: slightly lower to 0.2 so we can still work in noisier conditions.
-    private static let minKeypointConfidence: Float = 0.2
+    /// Raised to 0.5 to prevent hallucinating joints in loose clothing or bad lighting.
+    private static let minKeypointConfidence: Float = 0.5
 
     // MARK: - Public API
 
@@ -237,8 +237,9 @@ final class KeypointNormalizer {
             let normalizedWidth = halfFromLeft + halfFromRight
             return normalizedWidth * scaleFactor
         }
-        guard let m2 = extractM2RawWidthCm(observation, scaleFactor: scaleFactor) else { return nil }
-        return m2 * 0.85
+        
+        // Removed the 0.85 * M2 hack. We must enforce occlusion errors if waist points are missing.
+        return nil
     }
 
     /// V1: Torso height (cm). Top of head (nose) to widest hip point (hip midpoint).

@@ -25,6 +25,10 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     @Published private(set) var isStable: Bool = false
     /// Shown when body is detected but ankles are out of frame (full body must be visible).
     @Published var bodyNotInFrameMessage: String?
+    
+    /// Multi-frame buffer state
+    @Published private(set) var isBuffering: Bool = false
+    @Published private(set) var bufferProgress: Double = 0.0
 
     private var stableFrameCount: Int = 0
     /// For POC: 6 frames so stability is achievable but not too jumpy.
@@ -35,6 +39,10 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     private var lastLoggedPercent: Int = -1
     private var lastLoggedCanCapture: Bool = false
     private var lastLogTime: CFAbsoluteTime = 0
+    
+    // Multi-frame measurement buffer
+    private var measurementBuffer: [BodyProportionModel] = []
+    private let requiredBufferCount = 10
 
     // MARK: - User inputs (set from OnboardingView)
 
@@ -126,29 +134,76 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
         }
     }
 
-    /// Capture button tapped: run normalizer + classification, publish result.
+    /// Capture button tapped: Start buffering multi-frame measurements
     func capture() {
-        // Only allow capture when UI says we can capture (green button).
-        guard canCapture, let observation = currentObservation else { return }
-
+        // Only allow capture when UI says we can capture (green button)
+        guard canCapture, !isBuffering else { return }
+        
+        isBuffering = true
+        measurementBuffer.removeAll()
+        bufferProgress = 0.0
+    }
+    
+    /// Process a new frame for buffering
+    private func processFrameForBuffer(_ observation: VNHumanBodyPoseObservation, confidence: Double) {
+        guard isBuffering else { return }
+        
         let normalizer = KeypointNormalizer(userHeightCm: userHeightCm)
-        guard let model = normalizer.normalize(observation, overallConfidence: currentConfidence) else {
-            return
+        if let model = normalizer.normalize(observation, overallConfidence: confidence) {
+            measurementBuffer.append(model)
+            bufferProgress = Double(measurementBuffer.count) / Double(requiredBufferCount)
+            
+            if measurementBuffer.count >= requiredBufferCount {
+                finalizeCapture()
+            }
+        } else {
+            // Frame invalid (e.g. occlusion), cancel buffering
+            isBuffering = false
+            bufferProgress = 0.0
+            bodyNotInFrameMessage = "Please stand still and ensure your full body is visible."
         }
+    }
+    
+    /// Calculate medians and finalize capture
+    private func finalizeCapture() {
+        isBuffering = false
+        bufferProgress = 0.0
+        
+        guard !measurementBuffer.isEmpty else { return }
+        
+        // Calculate medians
+        let m1s = measurementBuffer.map { $0.m1ShoulderCircumferenceCm }.sorted()
+        let m2s = measurementBuffer.map { $0.m2HipCircumferenceCm }.sorted()
+        let m3s = measurementBuffer.map { $0.m3WaistCircumferenceCm }.sorted()
+        let v1s = measurementBuffer.map { $0.v1TorsoHeightCm }.sorted()
+        let v2s = measurementBuffer.map { $0.v2LegLengthCm }.sorted()
+        let waistProminences = measurementBuffer.map { $0.waistProminenceScore }.sorted()
+        
+        let medianIndex = measurementBuffer.count / 2
+        let medianModel = BodyProportionModel(
+            m1ShoulderCircumferenceCm: m1s[medianIndex],
+            m2HipCircumferenceCm: m2s[medianIndex],
+            m3WaistCircumferenceCm: m3s[medianIndex],
+            v1TorsoHeightCm: v1s[medianIndex],
+            v2LegLengthCm: v2s[medianIndex],
+            waistProminenceScore: waistProminences[medianIndex],
+            captureConfidence: measurementBuffer.map { $0.captureConfidence }.reduce(0, +) / Double(measurementBuffer.count),
+            timestamp: Date()
+        )
 
         let output = classificationEngine.classify(
-            m1: model.m1ShoulderCircumferenceCm,
-            m2: model.m2HipCircumferenceCm,
-            m3: model.m3WaistCircumferenceCm,
-            v1: model.v1TorsoHeightCm,
-            v2: model.v2LegLengthCm,
+            m1: medianModel.m1ShoulderCircumferenceCm,
+            m2: medianModel.m2HipCircumferenceCm,
+            m3: medianModel.m3WaistCircumferenceCm,
+            v1: medianModel.v1TorsoHeightCm,
+            v2: medianModel.v2LegLengthCm,
             userHeightCm: userHeightCm,
             isFemale: isFemale,
-            waistProminenceScore: model.waistProminenceScore
+            waistProminenceScore: medianModel.waistProminenceScore
         )
 
         let result = BodyScanResult(
-            measurements: model,
+            measurements: medianModel,
             positiveMessage: output.positiveMessage,
             verticalType: output.verticalType,
             isPetite: output.isPetite,
@@ -157,18 +212,14 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
         )
         
         // Debug logging so you can see everything in the Xcode console.
-        print("=== BodyCaptureViewModel.capture ===")
-        print("Confidence:", currentConfidence)
-        print("M1 Shoulder Circumference (cm):", model.m1ShoulderCircumferenceCm)
-        print("M2 Hip Circumference (cm):", model.m2HipCircumferenceCm)
-        print("M3 Waist Circumference (cm):", model.m3WaistCircumferenceCm)
-        print("V1 Torso Height (cm):", model.v1TorsoHeightCm)
-        print("V2 Leg Length (cm):", model.v2LegLengthCm)
-        print("Waist Prominence Score:", model.waistProminenceScore)
-        if let json = result.prettyPrintedJSON() {
-            print("BodyScanResult JSON:")
-            print(json)
-        }
+        print("=== BodyCaptureViewModel.capture (Averaged) ===")
+        print("Average Confidence:", medianModel.captureConfidence)
+        print("Median M1 Shoulder Circumference (cm):", medianModel.m1ShoulderCircumferenceCm)
+        print("Median M2 Hip Circumference (cm):", medianModel.m2HipCircumferenceCm)
+        print("Median M3 Waist Circumference (cm):", medianModel.m3WaistCircumferenceCm)
+        print("Median V1 Torso Height (cm):", medianModel.v1TorsoHeightCm)
+        print("Median V2 Leg Length (cm):", medianModel.v2LegLengthCm)
+        print("Median Waist Prominence Score:", medianModel.waistProminenceScore)
 
         capturedResult = result
     }
@@ -190,6 +241,9 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
         lastLoggedPercent = -1
         lastLoggedCanCapture = false
         lastLogTime = 0
+        isBuffering = false
+        bufferProgress = 0.0
+        measurementBuffer.removeAll()
     }
 
     /// Whether the capture button should be enabled.
@@ -232,6 +286,13 @@ extension BodyCaptureViewModel: AVCaptureVideoDataOutputSampleBufferDelegate {
                 self.stableFrameCount = 0
                 self.isStable = false
                 self.bodyNotInFrameMessage = nil
+                
+                // Cancel capture if we lose the body
+                if self.isBuffering {
+                    self.isBuffering = false
+                    self.bufferProgress = 0.0
+                    self.bodyNotInFrameMessage = "Capture interrupted. Please keep your body in frame."
+                }
             }
             return
         }
@@ -256,10 +317,21 @@ extension BodyCaptureViewModel: AVCaptureVideoDataOutputSampleBufferDelegate {
                 } else {
                     self.bodyNotInFrameMessage = nil
                 }
+                
+                if self.isBuffering {
+                    self.isBuffering = false
+                    self.bufferProgress = 0.0
+                    self.bodyNotInFrameMessage = "Capture interrupted. Please keep your body in frame."
+                }
                 return
             }
             self.bodyNotInFrameMessage = nil
             self.isBodyDetected = true
+            
+            // If we are currently capturing, push this frame to the buffer
+            if self.isBuffering {
+                self.processFrameForBuffer(observation, confidence: confidence)
+            }
 
             // Build stability when confidence >= 0.45 so 48–49% counts; one bad frame only decrements.
             if confidence >= self.minConfidenceForStability {

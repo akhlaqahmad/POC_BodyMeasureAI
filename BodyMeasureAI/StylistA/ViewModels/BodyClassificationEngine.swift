@@ -53,20 +53,20 @@ final class BodyClassificationEngine {
         // Horizontal shape (we never return the label; only pick the message)
         let message: String
         if isHourglass(m1: m1, m2: m2, m3: m3) {
-            message = "Your beautiful proportions mean we can highlight your natural waist and celebrate your balanced curves."
+            message = "Your beautiful proportions mean we can highlight your natural waist and celebrate your balanced curves with styles that follow your silhouette."
         } else if isRectangle(m1: m1, m2: m2, m3: m3) {
-            message = "Your elegant frame gives us the opportunity to create soft curves and define a graceful waistline."
+            message = "Your elegant frame gives us the opportunity to create soft curves and define a graceful waistline with clever styling."
         } else if isInvertedTriangle(m1: m1, m2: m2) {
-            message = "We'll focus on balancing your confident shoulders with styles that enhance your lower half."
+            message = "We’ll focus on balancing your confident shoulders with styles that enhance your lower half and create soft harmony."
         } else if isTriangle(m1: m1, m2: m2) {
-            message = "Your gorgeous hips give us a chance to draw attention upward and create beautiful balance."
+            message = "Your gorgeous hips give us a chance to draw attention upward and create beautiful balance with styles that flatter your shape."
         } else if isRound(m1: m1, m2: m2, m3: m3) {
-            message = "Now that we know your lovely shape, we can choose styles that enhance your best features."
+            message = "Now that we know your lovely shape, we can choose styles that enhance your best features and softly define your waistline."
         } else {
-            message = "Your elegant frame gives us the opportunity to create soft curves and define a graceful waistline."
+            message = "Your elegant frame gives us the opportunity to create soft curves and define a graceful waistline with clever styling."
         }
 
-        let petiteNote = " As a petite frame, vertical lines and clean single-colour dressing will add beautiful length."
+        let petiteNote = " As a petite frame, clothing needs to create length by adding vertical lines. Vertical lines in the middle slim the person as well as add length."
         let finalMessage = message + (isPetite ? petiteNote : "")
 
         return BodyClassificationOutput(
@@ -118,17 +118,22 @@ final class BodyClassificationEngine {
 
     private func classifyMen(m1: Double, m2: Double, m3: Double, waistProminenceScore: Double) -> BodyClassificationOutput {
         let message: String
-        if m1 > m2 + Self.broadShoulderMargin {
-            message = "Let's balance your strong upper body with styles that add subtle structure below."
+        
+        // Check for waist prominence (front-heavy) first, or if waist is generally larger
+        if m3 > m1 && m3 > m2 {
+            if waistProminenceScore > 0.5 {
+                message = "We’ll focus on clean lines and cuts that smooth and flatter your midsection — helping you look sharp and feel great."
+            } else {
+                message = "We’ll add shape where it counts, using smart tailoring for a crisp, confident look."
+            }
+        } else if m1 > m2 + Self.broadShoulderMargin {
+            message = "Let’s balance your strong upper body with styles that add subtle structure below — for a confident, polished silhouette."
         } else if m2 > m1 + Self.broadShoulderMargin {
-            message = "We'll choose cuts that strengthen your upper profile and bring everything into sleek proportion."
-        } else if waistProminenceScore > 0.5 {
-            message = "We'll focus on clean lines and cuts that smooth and flatter your midsection."
-        } else if m3 > m1 + Self.horizontalTolerance || m3 > m2 + Self.horizontalTolerance {
-            message = "We'll add shape where it counts, using smart tailoring for a crisp, confident look."
+            message = "We’ll choose cuts that strengthen your upper profile and bring everything into sleek proportion."
         } else {
-            message = "Great proportions — let's tailor the fit and style to suit your life and personality."
+            message = "Great proportions — let’s tailor the fit and style to suit your life and personality."
         }
+        
         return BodyClassificationOutput(
             verticalType: "balanced",
             isPetite: false,
