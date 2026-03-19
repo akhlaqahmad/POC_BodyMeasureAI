@@ -1,0 +1,602 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXContainerItemProxy section */
+		908F0A782F64E19400E7CA58 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 908F0A622F64E19200E7CA58 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 908F0A692F64E19200E7CA58;
+			remoteInfo = BodyMeasureAI;
+		};
+		908F0A822F64E19400E7CA58 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 908F0A622F64E19200E7CA58 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 908F0A692F64E19200E7CA58;
+			remoteInfo = BodyMeasureAI;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		908F0A6A2F64E19200E7CA58 /* BodyMeasureAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BodyMeasureAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		908F0A772F64E19400E7CA58 /* BodyMeasureAITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BodyMeasureAITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		908F0A812F64E19400E7CA58 /* BodyMeasureAIUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BodyMeasureAIUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		90E7F3772F64E501000EA57D /* Exceptions for "BodyMeasureAI" folder in "BodyMeasureAI" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 908F0A692F64E19200E7CA58 /* BodyMeasureAI */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		908F0A6C2F64E19200E7CA58 /* BodyMeasureAI */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				90E7F3772F64E501000EA57D /* Exceptions for "BodyMeasureAI" folder in "BodyMeasureAI" target */,
+			);
+			path = BodyMeasureAI;
+			sourceTree = "<group>";
+		};
+		908F0A7A2F64E19400E7CA58 /* BodyMeasureAITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = BodyMeasureAITests;
+			sourceTree = "<group>";
+		};
+		908F0A842F64E19400E7CA58 /* BodyMeasureAIUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = BodyMeasureAIUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		908F0A672F64E19200E7CA58 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		908F0A742F64E19400E7CA58 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		908F0A7E2F64E19400E7CA58 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		908F0A612F64E19200E7CA58 = {
+			isa = PBXGroup;
+			children = (
+				908F0A6C2F64E19200E7CA58 /* BodyMeasureAI */,
+				908F0A7A2F64E19400E7CA58 /* BodyMeasureAITests */,
+				908F0A842F64E19400E7CA58 /* BodyMeasureAIUITests */,
+				908F0A6B2F64E19200E7CA58 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		908F0A6B2F64E19200E7CA58 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				908F0A6A2F64E19200E7CA58 /* BodyMeasureAI.app */,
+				908F0A772F64E19400E7CA58 /* BodyMeasureAITests.xctest */,
+				908F0A812F64E19400E7CA58 /* BodyMeasureAIUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		908F0A692F64E19200E7CA58 /* BodyMeasureAI */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 908F0A8B2F64E19400E7CA58 /* Build configuration list for PBXNativeTarget "BodyMeasureAI" */;
+			buildPhases = (
+				908F0A662F64E19200E7CA58 /* Sources */,
+				908F0A672F64E19200E7CA58 /* Frameworks */,
+				908F0A682F64E19200E7CA58 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				908F0A6C2F64E19200E7CA58 /* BodyMeasureAI */,
+			);
+			name = BodyMeasureAI;
+			packageProductDependencies = (
+			);
+			productName = BodyMeasureAI;
+			productReference = 908F0A6A2F64E19200E7CA58 /* BodyMeasureAI.app */;
+			productType = "com.apple.product-type.application";
+		};
+		908F0A762F64E19400E7CA58 /* BodyMeasureAITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 908F0A8E2F64E19400E7CA58 /* Build configuration list for PBXNativeTarget "BodyMeasureAITests" */;
+			buildPhases = (
+				908F0A732F64E19400E7CA58 /* Sources */,
+				908F0A742F64E19400E7CA58 /* Frameworks */,
+				908F0A752F64E19400E7CA58 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				908F0A792F64E19400E7CA58 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				908F0A7A2F64E19400E7CA58 /* BodyMeasureAITests */,
+			);
+			name = BodyMeasureAITests;
+			packageProductDependencies = (
+			);
+			productName = BodyMeasureAITests;
+			productReference = 908F0A772F64E19400E7CA58 /* BodyMeasureAITests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		908F0A802F64E19400E7CA58 /* BodyMeasureAIUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 908F0A912F64E19400E7CA58 /* Build configuration list for PBXNativeTarget "BodyMeasureAIUITests" */;
+			buildPhases = (
+				908F0A7D2F64E19400E7CA58 /* Sources */,
+				908F0A7E2F64E19400E7CA58 /* Frameworks */,
+				908F0A7F2F64E19400E7CA58 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				908F0A832F64E19400E7CA58 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				908F0A842F64E19400E7CA58 /* BodyMeasureAIUITests */,
+			);
+			name = BodyMeasureAIUITests;
+			packageProductDependencies = (
+			);
+			productName = BodyMeasureAIUITests;
+			productReference = 908F0A812F64E19400E7CA58 /* BodyMeasureAIUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		908F0A622F64E19200E7CA58 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2620;
+				LastUpgradeCheck = 2620;
+				TargetAttributes = {
+					908F0A692F64E19200E7CA58 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					908F0A762F64E19400E7CA58 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = 908F0A692F64E19200E7CA58;
+					};
+					908F0A802F64E19400E7CA58 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = 908F0A692F64E19200E7CA58;
+					};
+				};
+			};
+			buildConfigurationList = 908F0A652F64E19200E7CA58 /* Build configuration list for PBXProject "BodyMeasureAI" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 908F0A612F64E19200E7CA58;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 908F0A6B2F64E19200E7CA58 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				908F0A692F64E19200E7CA58 /* BodyMeasureAI */,
+				908F0A762F64E19400E7CA58 /* BodyMeasureAITests */,
+				908F0A802F64E19400E7CA58 /* BodyMeasureAIUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		908F0A682F64E19200E7CA58 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		908F0A752F64E19400E7CA58 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		908F0A7F2F64E19400E7CA58 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		908F0A662F64E19200E7CA58 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		908F0A732F64E19400E7CA58 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		908F0A7D2F64E19400E7CA58 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		908F0A792F64E19400E7CA58 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 908F0A692F64E19200E7CA58 /* BodyMeasureAI */;
+			targetProxy = 908F0A782F64E19400E7CA58 /* PBXContainerItemProxy */;
+		};
+		908F0A832F64E19400E7CA58 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 908F0A692F64E19200E7CA58 /* BodyMeasureAI */;
+			targetProxy = 908F0A822F64E19400E7CA58 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		908F0A892F64E19400E7CA58 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = HS92C93H89;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		908F0A8A2F64E19400E7CA58 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = HS92C93H89;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		908F0A8C2F64E19400E7CA58 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HS92C93H89;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BodyMeasureAI/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "We need camera access to capture your body pose for measurements.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "We need photo library access to analyse garment images.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bjs.BodyMeasureAI;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		908F0A8D2F64E19400E7CA58 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HS92C93H89;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BodyMeasureAI/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "We need camera access to capture your body pose for measurements.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "We need photo library access to analyse garment images.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bjs.BodyMeasureAI;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		908F0A8F2F64E19400E7CA58 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HS92C93H89;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bjs.BodyMeasureAITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BodyMeasureAI.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BodyMeasureAI";
+			};
+			name = Debug;
+		};
+		908F0A902F64E19400E7CA58 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HS92C93H89;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bjs.BodyMeasureAITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BodyMeasureAI.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BodyMeasureAI";
+			};
+			name = Release;
+		};
+		908F0A922F64E19400E7CA58 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HS92C93H89;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bjs.BodyMeasureAIUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = BodyMeasureAI;
+			};
+			name = Debug;
+		};
+		908F0A932F64E19400E7CA58 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HS92C93H89;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bjs.BodyMeasureAIUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = BodyMeasureAI;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		908F0A652F64E19200E7CA58 /* Build configuration list for PBXProject "BodyMeasureAI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				908F0A892F64E19400E7CA58 /* Debug */,
+				908F0A8A2F64E19400E7CA58 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		908F0A8B2F64E19400E7CA58 /* Build configuration list for PBXNativeTarget "BodyMeasureAI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				908F0A8C2F64E19400E7CA58 /* Debug */,
+				908F0A8D2F64E19400E7CA58 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		908F0A8E2F64E19400E7CA58 /* Build configuration list for PBXNativeTarget "BodyMeasureAITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				908F0A8F2F64E19400E7CA58 /* Debug */,
+				908F0A902F64E19400E7CA58 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		908F0A912F64E19400E7CA58 /* Build configuration list for PBXNativeTarget "BodyMeasureAIUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				908F0A922F64E19400E7CA58 /* Debug */,
+				908F0A932F64E19400E7CA58 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 908F0A622F64E19200E7CA58 /* Project object */;
+}
