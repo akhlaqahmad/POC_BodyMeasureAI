@@ -25,6 +25,7 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     @Published private(set) var isStable: Bool = false
     /// Shown when body is detected but ankles are out of frame (full body must be visible).
     @Published var bodyNotInFrameMessage: String?
+    @Published var isFrontCamera: Bool = false
     
     /// Multi-frame buffer state
     @Published private(set) var isBuffering: Bool = false
@@ -59,6 +60,8 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     private let minConfidenceToEnableCapture: Double = 0.5
 
     private let classificationEngine = BodyClassificationEngine()
+    
+    private static let captureDeviceTypes: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera]
 
     // MARK: - Setup
 
@@ -94,28 +97,112 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     }
 
     private func _configureCaptureSession() {
-        session.beginConfiguration()
-        defer { session.commitConfiguration() }
+        print("📷 _configureCaptureSession called. Current session running: \(session.isRunning), isFrontCamera: \(isFrontCamera)")
+        
+        // Swapping camera inputs can temporarily pause the running pipeline.
+        // Stop + restart makes the change deterministic and avoids frozen previews.
+        let wasRunning = session.isRunning
+        if wasRunning {
+            session.stopRunning()
+        }
 
-        session.sessionPreset = .hd1920x1080
-        guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
-            Task { @MainActor in cameraDenied = true }
+        session.beginConfiguration()
+        defer { 
+            session.commitConfiguration() 
+            print("📷 _configureCaptureSession finished.")
+            
+            // Ensure the preview pipeline is running after reconfiguration.
+            if !session.isRunning {
+                session.startRunning()
+            }
+        }
+
+        // We only need to change the input device, not the output.
+        // This makes switching much faster.
+        let currentInputs = session.inputs
+        for input in currentInputs {
+            print("📷 Removing input: \(input)")
+            session.removeInput(input)
+        }
+
+        let position: AVCaptureDevice.Position = isFrontCamera ? .front : .back
+        print("📷 Requesting camera with position: \(position.rawValue)")
+        
+        let discovery = AVCaptureDevice.DiscoverySession(
+            deviceTypes: Self.captureDeviceTypes,
+            mediaType: .video,
+            position: position
+        )
+        guard let camera = discovery.devices.first else {
+            print("❌ Failed to get camera for position: \(position.rawValue)")
+            print("❌ Available cameras: \(AVCaptureDevice.DiscoverySession(deviceTypes: Self.captureDeviceTypes, mediaType: .video, position: .unspecified).devices.map { $0.localizedName })")
             return
         }
-        guard let input = try? AVCaptureDeviceInput(device: camera) else { return }
-        if session.canAddInput(input) { session.addInput(input) }
+        
+        do {
+            let input = try AVCaptureDeviceInput(device: camera)
+            if session.canAddInput(input) { 
+                session.addInput(input) 
+                print("📷 Successfully added input for camera: \(camera.localizedName)")
+            } else {
+                print("❌ Cannot add input to session")
+            }
+        } catch {
+            print("❌ Error creating device input: \(error)")
+            return
+        }
 
-        let output = AVCaptureVideoDataOutput()
-        output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
-        output.alwaysDiscardsLateVideoFrames = true
-        output.setSampleBufferDelegate(self, queue: visionQueue)
-        if session.canAddOutput(output) {
-            session.addOutput(output)
-            // Ensure portrait orientation so Vision keypoints align with preview.
-            if let connection = output.connection(with: .video),
-               connection.isVideoRotationAngleSupported(90) {
+        // If output doesn't exist, create and add it.
+        if session.outputs.isEmpty {
+            let output = AVCaptureVideoDataOutput()
+            output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+            output.alwaysDiscardsLateVideoFrames = true
+            output.setSampleBufferDelegate(self, queue: visionQueue)
+            
+            if session.canAddOutput(output) {
+                session.addOutput(output)
+                print("📷 Successfully added video output")
+            } else {
+                print("❌ Cannot add output to session")
+            }
+        }
+
+        // Ensure portrait orientation and mirroring are set correctly on the existing output
+        if let output = session.outputs.first as? AVCaptureVideoDataOutput,
+           let connection = output.connection(with: .video) {
+            if connection.isVideoRotationAngleSupported(90) {
                 connection.videoRotationAngle = 90
             }
+            if connection.isVideoMirroringSupported {
+                connection.isVideoMirrored = (position == .front)
+                print("📷 Set video mirrored: \(connection.isVideoMirrored)")
+            }
+        }
+    }
+
+    func toggleCamera() {
+        print("🔄 toggleCamera tapped! Current state - isFrontCamera: \(isFrontCamera)")
+        
+        let targetIsFront = !isFrontCamera
+        let targetPosition: AVCaptureDevice.Position = targetIsFront ? .front : .back
+        let hasTargetCamera = !AVCaptureDevice.DiscoverySession(
+            deviceTypes: Self.captureDeviceTypes,
+            mediaType: .video,
+            position: targetPosition
+        ).devices.isEmpty
+        
+        guard hasTargetCamera else {
+            print("❌ Toggle aborted. No camera found for target position: \(targetPosition.rawValue)")
+            return
+        }
+        
+        isFrontCamera = targetIsFront
+        print("🔄 State toggled - new isFrontCamera: \(isFrontCamera)")
+        
+        sessionQueue.async { [weak self] in
+            guard let self = self else { return }
+            print("🔄 Async session queue: calling _configureCaptureSession")
+            self._configureCaptureSession()
         }
     }
 

@@ -13,12 +13,17 @@ struct BodyCaptureView: View {
     @ObservedObject var viewModel: BodyCaptureViewModel
     var hideTopInstruction: Bool = false
     var onCaptured: (BodyScanResult) -> Void
+    
+    @State private var isCameraSwitching: Bool = false
 
     var body: some View {
         ZStack {
             CameraPreviewView(session: viewModel.session)
                 .ignoresSafeArea()
-
+                .blur(radius: isCameraSwitching ? 20 : 0)
+                .opacity(isCameraSwitching ? 0.5 : 1.0)
+                .animation(.easeInOut(duration: 0.2), value: isCameraSwitching)
+                
             DistanceGuideOverlay(
                 isPositioned: viewModel.canCapture
             )
@@ -26,6 +31,7 @@ struct BodyCaptureView: View {
 
             SkeletonOverlayView(observation: viewModel.currentObservation)
                 .ignoresSafeArea()
+                .allowsHitTesting(false)
 
             // Top gradient + instruction
             VStack(alignment: .leading, spacing: SSpacing.xs) {
@@ -79,6 +85,7 @@ struct BodyCaptureView: View {
                 Spacer()
             }
             .ignoresSafeArea()
+            .allowsHitTesting(false) // Let touches pass through the gradient view to buttons behind it
 
             // Bottom capture area
             VStack {
@@ -172,6 +179,32 @@ struct BodyCaptureView: View {
                 .padding(.horizontal, SSpacing.md)
                 .padding(.bottom, SSpacing.xxl)
             }
+            .allowsHitTesting(true) // Ensure this part still receives touches
+            
+            // Floating Camera Switch Button
+            VStack {
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        toggleCamera()
+                    }) {
+                        Image(systemName: "arrow.triangle.2.circlepath.camera")
+                            .font(.system(size: 20))
+                            .foregroundStyle(.white)
+                            .padding(12)
+                            .background(.black.opacity(0.4))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .zIndex(10) // Ensure it stays on top of other elements
+                }
+                .padding(.horizontal, SSpacing.md)
+                .padding(.top, 60)
+                Spacer()
+            }
+            .ignoresSafeArea()
+            .allowsHitTesting(true) // Ensure button can be tapped
+            .zIndex(1000)
 
             // Camera denied
             if viewModel.cameraDenied {
@@ -205,6 +238,36 @@ struct BodyCaptureView: View {
         }
         .onAppear { viewModel.requestCameraAndConfigure() }
         .onDisappear { viewModel.stopSession() }
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            TapGesture(count: 2).onEnded {
+                #if DEBUG
+                print("👆 Double tap detected on BodyCaptureView")
+                #endif
+                toggleCamera()
+            }
+        )
+    }
+    
+    private func toggleCamera() {
+        guard !isCameraSwitching else { return }
+        #if DEBUG
+        print("🎛️ BodyCaptureView.toggleCamera called")
+        #endif
+        
+        // Haptic feedback for the gesture/tap
+        let impactMed = UIImpactFeedbackGenerator(style: .medium)
+        impactMed.impactOccurred()
+        
+        isCameraSwitching = true
+        
+        // Switch the camera model-side
+        viewModel.toggleCamera()
+        
+        // Give it a brief moment before removing the blur, to let the feed restart
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            isCameraSwitching = false
+        }
     }
 
     private var topInstructionText: String {
