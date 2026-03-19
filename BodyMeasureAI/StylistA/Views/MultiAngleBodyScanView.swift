@@ -61,7 +61,7 @@ struct MultiAngleBodyScanView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            BodyCaptureView(viewModel: viewModel) { result in
+            BodyCaptureView(viewModel: viewModel, hideTopInstruction: true) { result in
                 handleCapture(result)
             }
 

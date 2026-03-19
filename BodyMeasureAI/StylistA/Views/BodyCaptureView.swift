@@ -11,6 +11,7 @@ import Vision
 
 struct BodyCaptureView: View {
     @ObservedObject var viewModel: BodyCaptureViewModel
+    var hideTopInstruction: Bool = false
     var onCaptured: (BodyScanResult) -> Void
 
     var body: some View {
@@ -28,51 +29,53 @@ struct BodyCaptureView: View {
 
             // Top gradient + instruction
             VStack(alignment: .leading, spacing: SSpacing.xs) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("BODY SCAN")
-                            .font(SFont.label(11))
-                            .tracking(3)
-                            .foregroundStyle(.white.opacity(0.6))
-                        Text(topInstructionText)
-                            .font(SFont.body(14))
-                            .foregroundStyle(.white)
-                            .animation(.easeInOut(duration: 0.3),
-                                       value: topInstructionText)
+                if !hideTopInstruction {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("BODY SCAN")
+                                .font(SFont.label(11))
+                                .tracking(3)
+                                .foregroundStyle(.white.opacity(0.6))
+                            Text(topInstructionText)
+                                .font(SFont.body(14))
+                                .foregroundStyle(.white)
+                                .animation(.easeInOut(duration: 0.3),
+                                           value: topInstructionText)
+                        }
+                        Spacer()
+                        if viewModel.currentObservation != nil {
+                            Text("\(Int(viewModel.currentConfidence * 100))%")
+                                .font(SFont.mono(12))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(.white.opacity(0.15))
+                                .clipShape(Capsule())
+                        }
                     }
-                    Spacer()
-                    if viewModel.currentObservation != nil {
-                        Text("\(Int(viewModel.currentConfidence * 100))%")
-                            .font(SFont.mono(12))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(.white.opacity(0.15))
-                            .clipShape(Capsule())
+                    .padding(SSpacing.md)
+                    .padding(.top, 110) // extra space to clear the navigation back button
+                    .background(
+                        LinearGradient(
+                            colors: [.black.opacity(0.6), .clear],
+                            startPoint: .top,
+                            endPoint: .bottom))
+                    
+                    // Tips when nothing is detected yet.
+                    if viewModel.currentConfidence == 0 && !viewModel.cameraDenied {
+                        VStack(alignment: .leading, spacing: 4) {
+                            tipRow("Stand 2–2.5 metres from camera")
+                            tipRow("Full body must be visible")
+                            tipRow("Good lighting — face a light source")
+                            tipRow("Plain background works best")
+                        }
+                        .padding(SSpacing.sm)
+                        .background(.black.opacity(0.4))
+                        .clipShape(RoundedRectangle(cornerRadius: SRadius.sm))
+                        .padding(.horizontal, SSpacing.lg)
                     }
                 }
-                .padding(SSpacing.md)
-                .padding(.top, 60) // extra space from very top so text isn't flush against camera notch
-                .background(
-                    LinearGradient(
-                        colors: [.black.opacity(0.6), .clear],
-                        startPoint: .top,
-                        endPoint: .bottom))
-
-                // Tips when nothing is detected yet.
-                if viewModel.currentConfidence == 0 && !viewModel.cameraDenied {
-                    VStack(alignment: .leading, spacing: 4) {
-                        tipRow("Stand 2–2.5 metres from camera")
-                        tipRow("Full body must be visible")
-                        tipRow("Good lighting — face a light source")
-                        tipRow("Plain background works best")
-                    }
-                    .padding(SSpacing.sm)
-                    .background(.black.opacity(0.4))
-                    .clipShape(RoundedRectangle(cornerRadius: SRadius.sm))
-                    .padding(.horizontal, SSpacing.lg)
-                }
-
+                
                 Spacer()
             }
             .ignoresSafeArea()
