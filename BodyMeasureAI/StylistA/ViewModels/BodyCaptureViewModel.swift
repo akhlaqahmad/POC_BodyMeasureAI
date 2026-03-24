@@ -27,6 +27,16 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     @Published var bodyNotInFrameMessage: String?
     @Published var isFrontCamera: Bool = false
     
+    // MARK: - Timer State
+    @Published var selectedTimer: Int = UserDefaults.standard.integer(forKey: "selectedTimer") {
+        didSet {
+            UserDefaults.standard.set(selectedTimer, forKey: "selectedTimer")
+        }
+    }
+    @Published private(set) var isCountingDown: Bool = false
+    @Published private(set) var countdown: Int = 0
+    private var cancellables = Set<AnyCancellable>()
+    
     /// Multi-frame buffer state
     @Published private(set) var isBuffering: Bool = false
     @Published private(set) var bufferProgress: Double = 0.0
@@ -60,7 +70,7 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     private let minConfidenceToEnableCapture: Double = 0.5
 
     private let classificationEngine = BodyClassificationEngine()
-    
+
     private static let captureDeviceTypes: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera]
 
     // MARK: - Setup
@@ -438,6 +448,7 @@ extension BodyCaptureViewModel: AVCaptureVideoDataOutputSampleBufferDelegate {
             let now = CFAbsoluteTimeGetCurrent()
             let canCaptureChanged = canNowCapture != self.lastLoggedCanCapture
             let throttleInterval = 1.0
+            
             if canCaptureChanged || (now - self.lastLogTime >= throttleInterval) {
                 if canCaptureChanged || percent != self.lastLoggedPercent {
                     self.lastLoggedPercent = percent
