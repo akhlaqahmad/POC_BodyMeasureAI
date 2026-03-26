@@ -32,6 +32,17 @@ struct BodyCaptureView: View {
             SkeletonOverlayView(observation: viewModel.currentObservation)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
+                
+            // Large Countdown Overlay for Single User Scenario
+            if viewModel.isCountingDown {
+                Text("\(viewModel.countdown)")
+                    .font(.system(size: 140, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: 5)
+                    .transition(.scale.combined(with: .opacity))
+                    .animation(.easeInOut(duration: 0.3), value: viewModel.countdown)
+                    .zIndex(500)
+            }
 
             // Top gradient + instruction
             VStack(alignment: .leading, spacing: SSpacing.xs) {
@@ -157,19 +168,28 @@ struct BodyCaptureView: View {
                             Circle()
                                 .stroke(.white.opacity(0.3), lineWidth: 2)
                                 .frame(width: 72, height: 72)
-                            Circle()
-                                .fill(viewModel.canCapture
-                                    ? Color.white
-                                    : Color.white.opacity(0.2))
-                                .frame(width: 56, height: 56)
-                                .scaleEffect(viewModel.canCapture ? 1.0 : 0.85)
-                                .animation(
-                                    .spring(response: 0.4,
-                                            dampingFraction: 0.6),
-                                    value: viewModel.canCapture)
+                            
+                            if viewModel.isCountingDown {
+                                // Stop button style
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color("sError"))
+                                    .frame(width: 32, height: 32)
+                            } else {
+                                Circle()
+                                    .fill(viewModel.canCapture
+                                        ? Color.white
+                                        : Color.white.opacity(0.2))
+                                    .frame(width: 56, height: 56)
+                                    .scaleEffect(viewModel.canCapture ? 1.0 : 0.85)
+                            }
                         }
+                        .animation(
+                            .spring(response: 0.4,
+                                    dampingFraction: 0.6),
+                            value: viewModel.canCapture)
+                        .animation(.easeInOut, value: viewModel.isCountingDown)
                     }
-                    .disabled(!viewModel.canCapture)
+                    .disabled(!viewModel.canCapture && !viewModel.isCountingDown)
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal, SSpacing.lg)
@@ -181,21 +201,48 @@ struct BodyCaptureView: View {
             }
             .allowsHitTesting(true) // Ensure this part still receives touches
             
-            // Floating Camera Switch Button
+            // Floating Camera Switch & Timer Buttons
             VStack {
                 HStack {
                     Spacer()
-                    Button(action: {
-                        toggleCamera()
-                    }) {
-                        Image(systemName: "arrow.triangle.2.circlepath.camera")
-                            .font(.system(size: 20))
-                            .foregroundStyle(.white)
-                            .padding(12)
+                    VStack(spacing: SSpacing.md) {
+                        Button(action: {
+                            toggleCamera()
+                        }) {
+                            Image(systemName: "arrow.triangle.2.circlepath.camera")
+                                .font(.system(size: 20))
+                                .foregroundStyle(.white)
+                                .padding(12)
+                                .background(.black.opacity(0.4))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(viewModel.isCountingDown)
+                        .opacity(viewModel.isCountingDown ? 0.5 : 1.0)
+                        
+                        Button(action: {
+                            cycleTimer()
+                        }) {
+                            ZStack {
+                                Image(systemName: "timer")
+                                    .font(.system(size: 20))
+                                    .foregroundStyle(viewModel.selectedTimer > 0 ? Color("sSuccess") : .white)
+                                
+                                if viewModel.selectedTimer > 0 {
+                                    Text("\(viewModel.selectedTimer)")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(Color("sSuccess"))
+                                        .offset(x: 10, y: 10)
+                                }
+                            }
+                            .frame(width: 44, height: 44)
                             .background(.black.opacity(0.4))
                             .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(viewModel.isCountingDown)
+                        .opacity(viewModel.isCountingDown ? 0.5 : 1.0)
                     }
-                    .buttonStyle(.plain)
                     .zIndex(10) // Ensure it stays on top of other elements
                 }
                 .padding(.horizontal, SSpacing.md)
@@ -241,6 +288,7 @@ struct BodyCaptureView: View {
         .contentShape(Rectangle())
         .simultaneousGesture(
             TapGesture(count: 2).onEnded {
+                guard !viewModel.isCountingDown else { return }
                 #if DEBUG
                 print("👆 Double tap detected on BodyCaptureView")
                 #endif
@@ -267,6 +315,19 @@ struct BodyCaptureView: View {
         // Give it a brief moment before removing the blur, to let the feed restart
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             isCameraSwitching = false
+        }
+    }
+    
+    private func cycleTimer() {
+        let impactLight = UIImpactFeedbackGenerator(style: .light)
+        impactLight.impactOccurred()
+        
+        switch viewModel.selectedTimer {
+        case 0: viewModel.selectedTimer = 3
+        case 3: viewModel.selectedTimer = 5
+        case 5: viewModel.selectedTimer = 10
+        case 10: viewModel.selectedTimer = 0
+        default: viewModel.selectedTimer = 0
         }
     }
 

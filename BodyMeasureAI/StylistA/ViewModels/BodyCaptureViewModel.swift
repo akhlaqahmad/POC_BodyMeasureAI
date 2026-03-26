@@ -10,6 +10,7 @@ import Combine
 import Foundation
 import SwiftUI
 import Vision
+import AudioToolbox
 
 @MainActor
 final class BodyCaptureViewModel: NSObject, ObservableObject {
@@ -226,16 +227,75 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     }
 
     func stopSession() {
+        cancelCountdown()
         sessionQueue.async { [weak self] in
             self?.session.stopRunning()
         }
     }
 
-    /// Capture button tapped: Start buffering multi-frame measurements
+    // Timer reference for cancellation
+    private var countdownTimer: Timer?
+
+    /// Capture button tapped: Start buffering multi-frame measurements or timer
     func capture() {
-        // Only allow capture when UI says we can capture (green button)
+        if isCountingDown {
+            cancelCountdown()
+            return
+        }
+        
         guard canCapture, !isBuffering else { return }
         
+        if selectedTimer > 0 {
+            startCountdown()
+        } else {
+            AudioServicesPlaySystemSound(1108) // camera shutter
+            startBufferingCapture()
+        }
+    }
+    
+    private func startCountdown() {
+        isCountingDown = true
+        countdown = selectedTimer
+        
+        // Initial tick
+        AudioServicesPlaySystemSound(1103) // tick
+        
+        countdownTimer?.invalidate()
+        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
+            Task { @MainActor in
+                guard let self = self else {
+                    timer.invalidate()
+                    return
+                }
+                
+                self.countdown -= 1
+                
+                if self.countdown > 0 {
+                    AudioServicesPlaySystemSound(1103) // tick
+                } else {
+                    timer.invalidate()
+                    self.isCountingDown = false
+                    AudioServicesPlaySystemSound(1108) // camera shutter
+                    
+                    // Check if we can actually capture now
+                    if self.isBodyDetected && self.currentConfidence >= self.minConfidenceToEnableCapture {
+                        self.startBufferingCapture()
+                    } else {
+                        self.bodyNotInFrameMessage = "Capture failed. Body not fully visible."
+                    }
+                }
+            }
+        }
+    }
+    
+    func cancelCountdown() {
+        countdownTimer?.invalidate()
+        countdownTimer = nil
+        isCountingDown = false
+        countdown = 0
+    }
+
+    private func startBufferingCapture() {
         isBuffering = true
         measurementBuffer.removeAll()
         bufferProgress = 0.0
@@ -329,6 +389,7 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     /// Reset all live-detection state so starting a new scan does not show
     /// previous frame's skeleton/confidence.
     func resetLiveState() {
+        cancelCountdown()
         currentObservation = nil
         isBodyDetected = false
         currentConfidence = 0
@@ -344,10 +405,10 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     }
 
     /// Whether the capture button should be enabled.
-    /// For POC we do not require isStable so the button can turn green as soon
-    /// as detection confidence passes the threshold.
     var canCapture: Bool {
-        isBodyDetected && currentConfidence >= minConfidenceToEnableCapture
+        if isCountingDown { return false }
+        if selectedTimer > 0 { return true } // Allow starting timer even if not positioned
+        return isBodyDetected && currentConfidence >= minConfidenceToEnableCapture
     }
 }
 
