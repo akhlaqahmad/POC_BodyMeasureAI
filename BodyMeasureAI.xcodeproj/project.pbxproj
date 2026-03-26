@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		AC07AEF4A5E319527EBE333F /* Appwrite in Frameworks */ = {isa = PBXBuildFile; productRef = FFE77B9BC1C53BBD8AE98E75 /* Appwrite */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		908F0A782F64E19400E7CA58 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -65,6 +69,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AC07AEF4A5E319527EBE333F /* Appwrite in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,6 +130,7 @@
 			);
 			name = BodyMeasureAI;
 			packageProductDependencies = (
+				FFE77B9BC1C53BBD8AE98E75 /* Appwrite */,
 			);
 			productName = BodyMeasureAI;
 			productReference = 908F0A6A2F64E19200E7CA58 /* BodyMeasureAI.app */;
@@ -147,8 +153,6 @@
 				908F0A7A2F64E19400E7CA58 /* BodyMeasureAITests */,
 			);
 			name = BodyMeasureAITests;
-			packageProductDependencies = (
-			);
 			productName = BodyMeasureAITests;
 			productReference = 908F0A772F64E19400E7CA58 /* BodyMeasureAITests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -170,8 +174,6 @@
 				908F0A842F64E19400E7CA58 /* BodyMeasureAIUITests */,
 			);
 			name = BodyMeasureAIUITests;
-			packageProductDependencies = (
-			);
 			productName = BodyMeasureAIUITests;
 			productReference = 908F0A812F64E19400E7CA58 /* BodyMeasureAIUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
@@ -208,6 +210,9 @@
 			);
 			mainGroup = 908F0A612F64E19200E7CA58;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				69AA4B8B8D83AC42C899C811 /* XCRemoteSwiftPackageReference "sdk-for-apple" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 908F0A6B2F64E19200E7CA58 /* Products */;
 			projectDirPath = "";
@@ -414,13 +419,14 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = BodyMeasureAI/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = StylistA;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSCameraUsageDescription = "We need camera access to capture your body pose for measurements.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "We need photo library access to analyse garment images.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "We need photo library access to choose garment images for analysis.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -449,13 +455,14 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = BodyMeasureAI/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = StylistA;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSCameraUsageDescription = "We need camera access to capture your body pose for measurements.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "We need photo library access to analyse garment images.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "We need photo library access to choose garment images for analysis.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -597,6 +604,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		69AA4B8B8D83AC42C899C811 /* XCRemoteSwiftPackageReference "sdk-for-apple" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/appwrite/sdk-for-apple";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 13.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		FFE77B9BC1C53BBD8AE98E75 /* Appwrite */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 69AA4B8B8D83AC42C899C811 /* XCRemoteSwiftPackageReference "sdk-for-apple" */;
+			productName = Appwrite;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 908F0A622F64E19200E7CA58 /* Project object */;
 }
