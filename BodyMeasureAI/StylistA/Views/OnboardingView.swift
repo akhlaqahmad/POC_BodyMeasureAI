@@ -15,7 +15,6 @@ struct OnboardingView: View {
 
     @State private var heightText: String = ""
     @State private var appeared = false
-    @State private var isPinging = false
 
     var body: some View {
         ZStack {
@@ -148,44 +147,6 @@ struct OnboardingView: View {
                         .background(Color("sAccent"))
                         .clipShape(RoundedRectangle(cornerRadius: SRadius.md))
                     }
-                    
-                    Button(action: {
-                        isPinging = true
-                        Task {
-                            do {
-                                print("Starting Appwrite ping...")
-                                let result = try await client.ping()
-                                print("Appwrite ping successful: \(result)")
-                            } catch {
-                                print("Appwrite ping failed with error: \(error.localizedDescription)")
-                            }
-                            isPinging = false
-                        }
-                    }) {
-                        HStack {
-                            Text("Send a ping")
-                                .font(SFont.label(15))
-                                .tracking(1)
-                            Spacer()
-                            if isPinging {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: Color("sAccent")))
-                            } else {
-                                Image(systemName: "network")
-                                    .font(.system(size: 14, weight: .medium))
-                            }
-                        }
-                        .foregroundStyle(Color("sAccent"))
-                        .padding(.horizontal, SSpacing.lg)
-                        .padding(.vertical, SSpacing.md)
-                        .background(Color("sSurface"))
-                        .clipShape(RoundedRectangle(cornerRadius: SRadius.md))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: SRadius.md)
-                                .stroke(Color("sBorder"), lineWidth: 1)
-                        )
-                    }
-                    .disabled(isPinging)
                 }
                 .padding(.horizontal, SSpacing.lg)
                 .opacity(appeared ? 1 : 0)
