@@ -11,7 +11,7 @@ import SwiftUI
 struct BodyMeasureAIApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            AppRootView()
         }
     }
 }

@@ -106,6 +106,16 @@ final class AppCoordinator: ObservableObject {
     }
 
     func completeScan() {
+        if let session = buildSession() {
+            Task {
+                do {
+                    try await ScanDatabaseService.shared.saveScanSession(session)
+                    print("Scan session successfully saved to Appwrite Database.")
+                } catch {
+                    print("Failed to save scan session: \(error.localizedDescription)")
+                }
+            }
+        }
         appendToPath(.finalResult)
     }
 
