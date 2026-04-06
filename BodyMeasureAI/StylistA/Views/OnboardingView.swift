@@ -12,6 +12,7 @@ struct OnboardingView: View {
     @Binding var heightCm: Double
     @Binding var isFemale: Bool
     var onStartScan: () -> Void
+    var onViewHistory: () -> Void
 
     @State private var heightText: String = ""
     @State private var appeared = false
@@ -29,6 +30,11 @@ struct OnboardingView: View {
                         .tracking(6)
                         .foregroundStyle(Color("sPrimary"))
                     Spacer()
+                    Button(action: onViewHistory) {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(Color("sPrimary"))
+                    }
                 }
                 .padding(.horizontal, SSpacing.lg)
                 .padding(.top, 56)

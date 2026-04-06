@@ -107,6 +107,10 @@ struct GarmentTagModel: Codable {
     var garmentLength: GarmentLength
     var visualWeight: VisualWeight
     var classificationConfidence: Double
+    /// Local filename of the garment image (stored in Documents/ScanImages/).
+    var imageLocalFilename: String? = nil
+    /// Remote file ID in Appwrite Storage (scan_images bucket).
+    var imageRemoteFileId: String? = nil
 }
 
 // MARK: - JSON export (matches spec)
@@ -127,6 +131,8 @@ extension GarmentTagModel {
         ]
         if let n = neckline, n != .unknown { out["neckline"] = n.rawValue }
         if let s = sleeveLength, s != .unknown { out["sleeveLength"] = s.rawValue }
+        if let filename = imageLocalFilename { out["imageLocalFilename"] = filename }
+        if let fileId = imageRemoteFileId { out["imageRemoteFileId"] = fileId }
         return out
     }
 

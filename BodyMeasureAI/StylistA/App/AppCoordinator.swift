@@ -18,6 +18,9 @@ enum FlowStep: Hashable {
     case garmentResult
     case finalResult
     case validationMode
+    case history
+    case bodyScanDetail(BodyScanHistoryItem)
+    case garmentScanDetail(GarmentScanHistoryItem)
 }
 
 @MainActor
@@ -94,6 +97,10 @@ final class AppCoordinator: ObservableObject {
     func bodyCaptured(result: BodyScanResult) {
         bodyResult = result
         appendToPath(.results)
+        // Persist body scan individually (fire-and-forget)
+        Task {
+            try? await ScanDatabaseService.shared.saveBodyScan(result)
+        }
     }
 
     func continueToGarment() {
@@ -103,6 +110,10 @@ final class AppCoordinator: ObservableObject {
     func garmentAnalysed(result: GarmentTagModel) {
         garmentResult = result
         appendToPath(.garmentResult)
+        // Persist garment scan individually (fire-and-forget)
+        Task {
+            try? await ScanDatabaseService.shared.saveGarmentScan(result)
+        }
     }
 
     func completeScan() {
@@ -130,6 +141,18 @@ final class AppCoordinator: ObservableObject {
         bodyCaptureViewModel.resetLiveState()
         garmentCaptureViewModel.clearSelection()
         clearPath()
+    }
+
+    func openHistory() {
+        appendToPath(.history)
+    }
+
+    func openBodyScanDetail(_ item: BodyScanHistoryItem) {
+        appendToPath(.bodyScanDetail(item))
+    }
+
+    func openGarmentScanDetail(_ item: GarmentScanHistoryItem) {
+        appendToPath(.garmentScanDetail(item))
     }
 
     func popLast() {

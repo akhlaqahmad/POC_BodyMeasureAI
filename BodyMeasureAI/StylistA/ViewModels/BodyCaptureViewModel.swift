@@ -7,6 +7,7 @@
 
 import AVFoundation
 import Combine
+import CoreImage
 import Foundation
 import SwiftUI
 import Vision
@@ -55,6 +56,10 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     // Multi-frame measurement buffer
     private var measurementBuffer: [BodyProportionModel] = []
     private let requiredBufferCount = 10
+
+    /// Latest pixel buffer from camera for snapshot capture.
+    private nonisolated(unsafe) var latestPixelBuffer: CVPixelBuffer?
+    private let ciContext = CIContext()
 
     // MARK: - User inputs (set from OnboardingView)
 
@@ -359,7 +364,7 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
             waistProminenceScore: medianModel.waistProminenceScore
         )
 
-        let result = BodyScanResult(
+        var result = BodyScanResult(
             measurements: medianModel,
             positiveMessage: output.positiveMessage,
             verticalType: output.verticalType,
@@ -377,6 +382,24 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
         print("Median V1 Torso Height (cm):", medianModel.v1TorsoHeightCm)
         print("Median V2 Leg Length (cm):", medianModel.v2LegLengthCm)
         print("Median Waist Prominence Score:", medianModel.waistProminenceScore)
+
+        // Save snapshot from latest camera frame
+        if let buffer = latestPixelBuffer {
+            let ciImage = CIImage(cvPixelBuffer: buffer)
+            if let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent) {
+                let snapshot = UIImage(cgImage: cgImage, scale: 1.0, orientation: .right)
+                if let filename = ImageStorageService.shared.saveImageLocally(image: snapshot, prefix: "body") {
+                    result.imageLocalFilename = filename
+                    Task.detached {
+                        if let fileId = await ImageStorageService.shared.uploadToCloud(filename: filename) {
+                            await MainActor.run {
+                                result.imageRemoteFileId = fileId
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         capturedResult = result
     }
@@ -426,6 +449,7 @@ extension BodyCaptureViewModel: AVCaptureVideoDataOutputSampleBufferDelegate {
         Self.frameCounter.increment()
         if Self.frameCounter.value % Self.processEveryNthFrame != 0 { return }
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        self.latestPixelBuffer = pixelBuffer
         let request = VNDetectHumanBodyPoseRequest()
         request.revision = VNDetectHumanBodyPoseRequestRevision1
 

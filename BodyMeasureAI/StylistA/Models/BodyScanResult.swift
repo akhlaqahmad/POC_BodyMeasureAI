@@ -26,6 +26,10 @@ struct BodyScanResult {
     var garmentAnalysis: GarmentTagModel? = nil
     /// Optional 3-angle measurements (front/side/back) from MultiAngleBodyScanView.
     var multiAngleMeasurements: MultiAngleMeasurements? = nil
+    /// Local filename of the body scan snapshot image (stored in Documents/ScanImages/).
+    var imageLocalFilename: String? = nil
+    /// Remote file ID in Appwrite Storage (scan_images bucket).
+    var imageRemoteFileId: String? = nil
 
     /// JSON structure for export (matches spec). Includes garmentAnalysis when present.
     var exportJSON: [String: Any] {
@@ -43,6 +47,8 @@ struct BodyScanResult {
             "bodyClassification": bodyClassificationExport,
             "captureConfidence": measurements.captureConfidence
         ] as [String: Any]
+        if let filename = imageLocalFilename { out["imageLocalFilename"] = filename }
+        if let fileId = imageRemoteFileId { out["imageRemoteFileId"] = fileId }
         if let garment = garmentAnalysis {
             out["garmentAnalysis"] = garment.exportJSON
         }

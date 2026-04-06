@@ -17,7 +17,8 @@ struct ContentView: View {
             OnboardingView(
                 heightCm: $coordinator.bodyCaptureViewModel.userHeightCm,
                 isFemale: $coordinator.bodyCaptureViewModel.isFemale,
-                onStartScan: { coordinator.requestCameraAndStartScan() }
+                onStartScan: { coordinator.requestCameraAndStartScan() },
+                onViewHistory: { coordinator.openHistory() }
             )
             .onAppear {
                 coordinator.navigationPathBinding = $navigationPath
@@ -73,6 +74,13 @@ struct ContentView: View {
                             onDismiss: { coordinator.popLast() }
                         )
                     }
+                case .history:
+                    HistoryView()
+                        .environmentObject(coordinator)
+                case .bodyScanDetail(let item):
+                    BodyScanDetailView(item: item)
+                case .garmentScanDetail(let item):
+                    GarmentScanDetailView(item: item)
                 }
             }
         }

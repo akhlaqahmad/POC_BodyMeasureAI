@@ -27,7 +27,20 @@ final class GarmentCaptureViewModel: ObservableObject {
         analysisResult = nil
         defer { isAnalyzing = false }
 
-        let result = await classifier.classify(image: image)
+        var result = await classifier.classify(image: image)
+
+        // Save garment image locally and start background upload
+        if let filename = ImageStorageService.shared.saveImageLocally(image: image, prefix: "garment") {
+            result.imageLocalFilename = filename
+            Task.detached {
+                if let fileId = await ImageStorageService.shared.uploadToCloud(filename: filename) {
+                    await MainActor.run {
+                        result.imageRemoteFileId = fileId
+                    }
+                }
+            }
+        }
+
         analysisResult = result
     }
 
