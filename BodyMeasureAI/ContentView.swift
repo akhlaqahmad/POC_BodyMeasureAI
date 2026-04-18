@@ -76,6 +76,7 @@ struct ContentView: View {
                 }
             }
         }
+        .environmentObject(coordinator)
     }
 }
 

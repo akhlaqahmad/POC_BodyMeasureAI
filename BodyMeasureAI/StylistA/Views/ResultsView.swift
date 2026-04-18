@@ -15,6 +15,8 @@ struct ResultsView: View {
     let onValidationMode: () -> Void
     let onStartMultiAngleScan: () -> Void
 
+    @EnvironmentObject private var coordinator: AppCoordinator
+
     @State private var appeared = false
     @State private var selectedAngleIndex: Int = 0
     @State private var jsonExpanded: Bool = false
@@ -250,7 +252,10 @@ struct ResultsView: View {
             }
         }
         .navigationBarHidden(true)
-        .onAppear { appeared = true }
+        .onAppear {
+            appeared = true
+            coordinator.uploadBodyOnlyIfNeeded(result)
+        }
         .sheet(isPresented: $showJSONSheet) {
             NavigationStack {
                 ZStack {

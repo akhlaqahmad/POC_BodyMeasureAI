@@ -11,6 +11,9 @@ import UIKit
 struct FinalScanResultView: View {
     let session: ScanSessionModel
     let onNewScan: () -> Void
+    /// Optional coordinator hook so the view can trigger and observe uploads.
+    /// Kept optional to avoid breaking existing call sites / previews.
+    @EnvironmentObject private var coordinator: AppCoordinator
 
     @State private var appeared = false
     @State private var jsonExpanded = false
@@ -24,10 +27,14 @@ struct FinalScanResultView: View {
 
                     // Header
                     VStack(alignment: .leading, spacing: SSpacing.xs) {
-                        Text("STYLISTA")
-                            .font(SFont.label(11))
-                            .tracking(6)
-                            .foregroundStyle(Color("sTertiary"))
+                        HStack {
+                            Text("STYLISTA")
+                                .font(SFont.label(11))
+                                .tracking(6)
+                                .foregroundStyle(Color("sTertiary"))
+                            Spacer()
+                            SyncStatusBadge(status: coordinator.uploadStatus)
+                        }
                         Text("Your Style\nProfile")
                             .font(SFont.display(40, weight: .light))
                             .foregroundStyle(Color("sPrimary"))
@@ -238,7 +245,10 @@ struct FinalScanResultView: View {
             }
         }
         .navigationBarHidden(true)
-        .onAppear { appeared = true }
+        .onAppear {
+            appeared = true
+            coordinator.uploadCompletedSession(session)
+        }
     }
 
     private struct FinalSectionHeader: View {
@@ -331,6 +341,36 @@ struct FinalScanResultView: View {
         let g = Double((value >> 8) & 0xFF) / 255.0
         let b = Double(value & 0xFF) / 255.0
         return Color(red: r, green: g, blue: b)
+    }
+}
+
+/// Small inline indicator for upload state so users know the session hit the
+/// admin DB. Styled to match the existing label vocabulary.
+private struct SyncStatusBadge: View {
+    let status: AppCoordinator.UploadStatus
+    var body: some View {
+        switch status {
+        case .idle:
+            EmptyView()
+        case .uploading:
+            HStack(spacing: 4) {
+                ProgressView().controlSize(.mini)
+                Text("SYNCING")
+                    .font(SFont.label(9))
+                    .tracking(2)
+                    .foregroundStyle(Color("sTertiary"))
+            }
+        case .success:
+            Text("SYNCED")
+                .font(SFont.label(9))
+                .tracking(2)
+                .foregroundStyle(Color("sTertiary"))
+        case .failure:
+            Text("SYNC FAILED")
+                .font(SFont.label(9))
+                .tracking(2)
+                .foregroundStyle(Color("sTertiary"))
+        }
     }
 }
 

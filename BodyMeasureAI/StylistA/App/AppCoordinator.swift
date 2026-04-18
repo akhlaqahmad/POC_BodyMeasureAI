@@ -31,6 +31,19 @@ final class AppCoordinator: ObservableObject {
     @Published var bodyResult: BodyScanResult?
     @Published var garmentResult: GarmentTagModel?
 
+    /// Status of the most recent upload to the admin backend. Observed by
+    /// results screens that want to surface a "Synced" indicator.
+    enum UploadStatus: Equatable {
+        case idle
+        case uploading
+        case success(remoteId: String)
+        case failure(message: String)
+    }
+    @Published var uploadStatus: UploadStatus = .idle
+    /// Session IDs we've already pushed, so re-entering a results view doesn't
+    /// double-upload on `onAppear`.
+    private var uploadedSessionIds: Set<String> = []
+
     init() {
         self.bodyCaptureViewModel = BodyCaptureViewModel()
         self.garmentCaptureViewModel = GarmentCaptureViewModel()
@@ -119,6 +132,7 @@ final class AppCoordinator: ObservableObject {
         bodyCaptureViewModel.clearResult()
         bodyCaptureViewModel.resetLiveState()
         garmentCaptureViewModel.clearSelection()
+        newScanClearsUploadState()
         clearPath()
     }
 
@@ -130,5 +144,50 @@ final class AppCoordinator: ObservableObject {
         guard let body = bodyResult else { return nil }
         guard let garment = garmentResult else { return nil }
         return ScanSessionModel.from(bodyResult: body, garmentResult: garment)
+    }
+
+    // MARK: - Backend upload
+
+    func newScanClearsUploadState() {
+        uploadStatus = .idle
+        uploadedSessionIds.removeAll()
+    }
+
+    /// Upload the full body+garment session. Idempotent per sessionId.
+    func uploadCompletedSession(_ session: ScanSessionModel) {
+        guard !uploadedSessionIds.contains(session.sessionId) else { return }
+        uploadedSessionIds.insert(session.sessionId)
+        uploadStatus = .uploading
+        Task { [weak self] in
+            let result = await BackendAPIClient.upload(session: session)
+            await MainActor.run {
+                self?.uploadStatus = Self.mapStatus(result)
+            }
+        }
+    }
+
+    /// Upload just the body scan (no garment captured). Idempotent per timestamp.
+    func uploadBodyOnlyIfNeeded(_ body: BodyScanResult) {
+        let key = ISO8601DateFormatter().string(from: body.measurements.timestamp)
+        guard !uploadedSessionIds.contains(key) else { return }
+        uploadedSessionIds.insert(key)
+        uploadStatus = .uploading
+        Task { [weak self] in
+            let result = await BackendAPIClient.upload(bodyOnly: body)
+            await MainActor.run {
+                self?.uploadStatus = Self.mapStatus(result)
+            }
+        }
+    }
+
+    private static func mapStatus(
+        _ result: Result<BackendUploadResult, BackendUploadError>
+    ) -> UploadStatus {
+        switch result {
+        case .success(let r):
+            return .success(remoteId: r.remoteSessionId)
+        case .failure(let err):
+            return .failure(message: "\(err)")
+        }
     }
 }
