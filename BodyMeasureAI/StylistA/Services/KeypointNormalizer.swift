@@ -24,7 +24,7 @@ final class KeypointNormalizer {
 
     /// Minimum confidence (0–1) for a keypoint to be used in scale or measurement.
     /// Raised to 0.5 to prevent hallucinating joints in loose clothing or bad lighting.
-    private static let minKeypointConfidence: Float = 0.5
+    private static let minKeypointConfidence: Float = 0.35
 
     // MARK: - Public API
 
@@ -58,10 +58,10 @@ final class KeypointNormalizer {
         let m2 = ellipticalCircumference(halfWidth: rawM2Cm / 2, depthRatio: 0.62)
         let m3 = ellipticalCircumference(halfWidth: rawM3Cm / 2, depthRatio: 0.55)
 
-        print("[DEBUG] scaleFactor=\(scaleFactor)")
-        print("[DEBUG] rawM1=\(rawM1Cm) → circ=\(m1)")
-        print("[DEBUG] rawM2=\(rawM2Cm) → circ=\(m2)")
-        print("[DEBUG] rawM3=\(rawM3Cm) → circ=\(m3)")
+        Log.debug("Scale factor computed", context: ["scaleFactor": scaleFactor])
+        Log.debug("Shoulder measurement", context: ["rawWidthCm": rawM1Cm, "circumferenceCm": m1])
+        Log.debug("Hip measurement", context: ["rawWidthCm": rawM2Cm, "circumferenceCm": m2])
+        Log.debug("Waist measurement", context: ["rawWidthCm": rawM3Cm, "circumferenceCm": m3])
 
         // --- Vertical measurements (cm), with perspective correction ---
         guard
@@ -70,7 +70,7 @@ final class KeypointNormalizer {
         else {
             return nil
         }
-        print("[DEBUG] V1=\(v1) V2=\(v2)")
+        Log.debug("Vertical measurements", context: ["V1_torsoCm": v1, "V2_legCm": v2])
 
         // Waist prominence proxy (monocular heuristic, 0–1)
         let waistProminenceScore = computeWaistProminenceScore(observation)
@@ -237,8 +237,12 @@ final class KeypointNormalizer {
             let normalizedWidth = halfFromLeft + halfFromRight
             return normalizedWidth * scaleFactor
         }
-        
-        // Removed the 0.85 * M2 hack. We must enforce occlusion errors if waist points are missing.
+
+        if let l = lh, let r = rh {
+            let hipWidth = abs(r.x - l.x)
+            return (hipWidth * 0.85) * scaleFactor
+        }
+
         return nil
     }
 

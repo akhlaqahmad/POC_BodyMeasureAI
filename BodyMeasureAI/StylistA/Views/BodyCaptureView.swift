@@ -159,9 +159,6 @@ struct BodyCaptureView: View {
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             viewModel.capture()
-                            if let result = viewModel.capturedResult {
-                                onCaptured(result)
-                            }
                         }
                     }) {
                         ZStack {
@@ -285,13 +282,16 @@ struct BodyCaptureView: View {
         }
         .onAppear { viewModel.requestCameraAndConfigure() }
         .onDisappear { viewModel.stopSession() }
+        .onChange(of: viewModel.capturedResult != nil) { _, hasCaptured in
+            if hasCaptured, let result = viewModel.capturedResult {
+                onCaptured(result)
+            }
+        }
         .contentShape(Rectangle())
         .simultaneousGesture(
             TapGesture(count: 2).onEnded {
                 guard !viewModel.isCountingDown else { return }
-                #if DEBUG
-                print("👆 Double tap detected on BodyCaptureView")
-                #endif
+                Log.debug("Double tap detected on BodyCaptureView")
                 toggleCamera()
             }
         )
@@ -299,9 +299,7 @@ struct BodyCaptureView: View {
     
     private func toggleCamera() {
         guard !isCameraSwitching else { return }
-        #if DEBUG
-        print("🎛️ BodyCaptureView.toggleCamera called")
-        #endif
+        Log.debug("BodyCaptureView.toggleCamera called")
         
         // Haptic feedback for the gesture/tap
         let impactMed = UIImpactFeedbackGenerator(style: .medium)

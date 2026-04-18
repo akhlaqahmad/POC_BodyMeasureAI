@@ -156,8 +156,10 @@ struct MultiAngleBodyScanView: View {
                 }
             }
         }
-        // Clear capturedResult so BodyCaptureView can capture again cleanly.
+        // Clear capturedResult and reset live detection state so the next
+        // angle starts fresh (stability counter, frame buffer, etc.).
         viewModel.clearResult()
+        viewModel.resetLiveState()
     }
 }
 

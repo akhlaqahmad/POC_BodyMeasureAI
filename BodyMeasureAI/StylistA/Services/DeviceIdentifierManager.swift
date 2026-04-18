@@ -21,7 +21,7 @@ class DeviceIdentifierManager {
             do {
                 try KeychainManager.shared.saveString(key: keychainKey, value: newIdentifier)
             } catch {
-                print("Failed to save device identifier to Keychain: \(error)")
+                Log.error("Failed to save device identifier to Keychain", context: ["error": "\(error)"])
             }
             
             return newIdentifier
@@ -32,7 +32,7 @@ class DeviceIdentifierManager {
         do {
             try KeychainManager.shared.delete(key: keychainKey)
         } catch {
-            print("Failed to delete device identifier from Keychain: \(error)")
+            Log.error("Failed to delete device identifier from Keychain", context: ["error": "\(error)"])
         }
     }
 }

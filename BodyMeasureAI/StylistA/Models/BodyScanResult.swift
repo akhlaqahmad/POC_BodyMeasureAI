@@ -97,7 +97,9 @@ struct BodyScanResult {
 
     /// Pretty-printed JSON string for display and share.
     func prettyPrintedJSON() -> String? {
-        guard let data = try? JSONSerialization.data(withJSONObject: exportJSON, options: .prettyPrinted),
+        let json = exportJSON
+        guard JSONSerialization.isValidJSONObject(json),
+              let data = try? JSONSerialization.data(withJSONObject: json, options: .prettyPrinted),
               let str = String(data: data, encoding: .utf8) else { return nil }
         return str
     }

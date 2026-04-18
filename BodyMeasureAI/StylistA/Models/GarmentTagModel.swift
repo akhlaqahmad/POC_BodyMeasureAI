@@ -138,7 +138,8 @@ extension GarmentTagModel {
 
     func prettyPrintedJSON() -> String? {
         let wrapper = ["garmentAnalysis": exportJSON] as [String: Any]
-        guard let data = try? JSONSerialization.data(withJSONObject: wrapper, options: .prettyPrinted),
+        guard JSONSerialization.isValidJSONObject(wrapper),
+              let data = try? JSONSerialization.data(withJSONObject: wrapper, options: .prettyPrinted),
               let str = String(data: data, encoding: .utf8) else { return nil }
         return str
     }

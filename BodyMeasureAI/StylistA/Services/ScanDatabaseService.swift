@@ -70,21 +70,24 @@ class ScanDatabaseService {
             throw ScanError.unauthenticated
         }
         
-        let documentData: [String: AnyCodable] = [
-            "userId": AnyCodable(userId),
-            "sessionId": AnyCodable(session.sessionId),
-            "scanTimestamp": AnyCodable(session.sessionTimestamp.timeIntervalSince1970),
-            "heightCm": AnyCodable(session.userInputs.heightCm),
-            "gender": AnyCodable(session.userInputs.gender),
-            "scanDataJSON": AnyCodable(session.prettyPrintedJSON() ?? "")
+        let documentData: [String: Any] = [
+            "sessionId": session.sessionId,
+            "scanTimestamp": session.sessionTimestamp.timeIntervalSince1970,
+            "heightCm": session.userInputs.heightCm,
+            "gender": session.userInputs.gender,
+            "scanDataJSON": session.prettyPrintedJSON() ?? ""
         ]
-        
+
         do {
             _ = try await databases.createDocument(
                 databaseId: AppwriteConfig.databaseId,
                 collectionId: AppwriteConfig.scansCollectionId,
                 documentId: ID.unique(),
-                data: documentData
+                data: documentData,
+                permissions: [
+                    Permission.read(Role.user(userId)),
+                    Permission.write(Role.user(userId))
+                ]
             )
         } catch let error as AppwriteError {
             // If it's a network error (e.g. code 0), save locally
@@ -105,19 +108,18 @@ class ScanDatabaseService {
         let result = try await databases.listDocuments(
             databaseId: AppwriteConfig.databaseId,
             collectionId: AppwriteConfig.scansCollectionId,
-            queries: [Query.equal("userId", value: userId), Query.orderDesc("scanTimestamp")]
+            queries: [Query.orderDesc("scanTimestamp")]
         )
-        
+
         return result.documents
     }
     
-    private func savePendingScanLocally(documentData: [String: AnyCodable]) {
-        // We need to convert AnyCodable dictionary to JSON Data
-        if let data = try? JSONEncoder().encode(documentData) {
-            var pendingScans = UserDefaults.standard.array(forKey: pendingScansKey) as? [Data] ?? []
-            pendingScans.append(data)
-            UserDefaults.standard.set(pendingScans, forKey: pendingScansKey)
-        }
+    private func savePendingScanLocally(documentData: [String: Any]) {
+        guard JSONSerialization.isValidJSONObject(documentData),
+              let data = try? JSONSerialization.data(withJSONObject: documentData, options: []) else { return }
+        var pendingScans = UserDefaults.standard.array(forKey: pendingScansKey) as? [Data] ?? []
+        pendingScans.append(data)
+        UserDefaults.standard.set(pendingScans, forKey: pendingScansKey)
     }
     
     func retryPendingScans() async {
@@ -127,14 +129,13 @@ class ScanDatabaseService {
         
         for scanData in pendingScans {
             do {
-                if let documentData = try? JSONDecoder().decode([String: AnyCodable].self, from: scanData) {
-                    _ = try await databases.createDocument(
-                        databaseId: AppwriteConfig.databaseId,
-                        collectionId: AppwriteConfig.scansCollectionId,
-                        documentId: ID.unique(),
-                        data: documentData
-                    )
-                }
+                guard let json = try JSONSerialization.jsonObject(with: scanData) as? [String: Any] else { continue }
+                _ = try await databases.createDocument(
+                    databaseId: AppwriteConfig.databaseId,
+                    collectionId: AppwriteConfig.scansCollectionId,
+                    documentId: ID.unique(),
+                    data: json
+                )
             } catch let error as AppwriteError {
                 if error.code == 0 {
                     // Still network error, keep it
@@ -164,26 +165,26 @@ class ScanDatabaseService {
             "waistProminenceScore": result.measurements.waistProminenceScore
         ]
         let measurementsJSONString: String
-        if let data = try? JSONSerialization.data(withJSONObject: measurementsDict, options: .prettyPrinted),
+        if JSONSerialization.isValidJSONObject(measurementsDict),
+           let data = try? JSONSerialization.data(withJSONObject: measurementsDict, options: .prettyPrinted),
            let str = String(data: data, encoding: .utf8) {
             measurementsJSONString = str
         } else {
             measurementsJSONString = "{}"
         }
 
-        let documentData: [String: AnyCodable] = [
-            "userId": AnyCodable(userId),
-            "scanId": AnyCodable(UUID().uuidString),
-            "scanTimestamp": AnyCodable(Date().timeIntervalSince1970),
-            "heightCm": AnyCodable(result.userHeightCm),
-            "gender": AnyCodable(result.gender),
-            "positiveMessage": AnyCodable(result.positiveMessage),
-            "verticalType": AnyCodable(result.verticalType),
-            "isPetite": AnyCodable(result.isPetite),
-            "captureConfidence": AnyCodable(result.measurements.captureConfidence),
-            "measurementsJSON": AnyCodable(measurementsJSONString),
-            "imageLocalFilename": AnyCodable(result.imageLocalFilename ?? ""),
-            "imageRemoteFileId": AnyCodable(result.imageRemoteFileId ?? "")
+        let documentData: [String: Any] = [
+            "scanId": UUID().uuidString,
+            "scanTimestamp": Date().timeIntervalSince1970,
+            "heightCm": result.userHeightCm,
+            "gender": result.gender,
+            "positiveMessage": result.positiveMessage,
+            "verticalType": result.verticalType,
+            "isPetite": result.isPetite,
+            "captureConfidence": result.measurements.captureConfidence,
+            "measurementsJSON": measurementsJSONString,
+            "imageLocalFilename": result.imageLocalFilename ?? "",
+            "imageRemoteFileId": result.imageRemoteFileId ?? ""
         ]
 
         do {
@@ -191,24 +192,28 @@ class ScanDatabaseService {
                 databaseId: AppwriteConfig.databaseId,
                 collectionId: AppwriteConfig.bodyScansCollectionId,
                 documentId: ID.unique(),
-                data: documentData
+                data: documentData,
+                permissions: [
+                    Permission.read(Role.user(userId)),
+                    Permission.write(Role.user(userId))
+                ]
             )
-            print("[ScanDB] Body scan saved successfully")
+            Log.info("Body scan saved successfully")
         } catch {
-            print("[ScanDB] Failed to save body scan: \(error.localizedDescription)")
+            Log.error("Failed to save body scan", context: ["error": error.localizedDescription])
             throw error
         }
     }
 
     func fetchBodyScans() async throws -> [BodyScanHistoryItem] {
-        guard let userId = AuthService.shared.currentUser?.id else {
+        guard AuthService.shared.currentUser != nil else {
             throw ScanError.unauthenticated
         }
 
         let result = try await databases.listDocuments(
             databaseId: AppwriteConfig.databaseId,
             collectionId: AppwriteConfig.bodyScansCollectionId,
-            queries: [Query.equal("userId", value: userId), Query.orderDesc("scanTimestamp")]
+            queries: [Query.orderDesc("scanTimestamp")]
         )
 
         return result.documents.compactMap { doc -> BodyScanHistoryItem? in
@@ -250,20 +255,21 @@ class ScanDatabaseService {
         }
 
         let garmentJSONString: String
-        if let data = try? JSONSerialization.data(withJSONObject: result.exportJSON, options: .prettyPrinted),
+        let garmentJSON = result.exportJSON
+        if JSONSerialization.isValidJSONObject(garmentJSON),
+           let data = try? JSONSerialization.data(withJSONObject: garmentJSON, options: .prettyPrinted),
            let str = String(data: data, encoding: .utf8) {
             garmentJSONString = str
         } else {
             garmentJSONString = "{}"
         }
 
-        let documentData: [String: AnyCodable] = [
-            "userId": AnyCodable(userId),
-            "scanId": AnyCodable(UUID().uuidString),
-            "scanTimestamp": AnyCodable(Date().timeIntervalSince1970),
-            "garmentDataJSON": AnyCodable(garmentJSONString),
-            "imageLocalFilename": AnyCodable(result.imageLocalFilename ?? ""),
-            "imageRemoteFileId": AnyCodable(result.imageRemoteFileId ?? "")
+        let documentData: [String: Any] = [
+            "scanId": UUID().uuidString,
+            "scanTimestamp": Date().timeIntervalSince1970,
+            "garmentDataJSON": garmentJSONString,
+            "imageLocalFilename": result.imageLocalFilename ?? "",
+            "imageRemoteFileId": result.imageRemoteFileId ?? ""
         ]
 
         do {
@@ -271,24 +277,28 @@ class ScanDatabaseService {
                 databaseId: AppwriteConfig.databaseId,
                 collectionId: AppwriteConfig.garmentScansCollectionId,
                 documentId: ID.unique(),
-                data: documentData
+                data: documentData,
+                permissions: [
+                    Permission.read(Role.user(userId)),
+                    Permission.write(Role.user(userId))
+                ]
             )
-            print("[ScanDB] Garment scan saved successfully")
+            Log.info("Garment scan saved successfully")
         } catch {
-            print("[ScanDB] Failed to save garment scan: \(error.localizedDescription)")
+            Log.error("Failed to save garment scan", context: ["error": error.localizedDescription])
             throw error
         }
     }
 
     func fetchGarmentScans() async throws -> [GarmentScanHistoryItem] {
-        guard let userId = AuthService.shared.currentUser?.id else {
+        guard AuthService.shared.currentUser != nil else {
             throw ScanError.unauthenticated
         }
 
         let result = try await databases.listDocuments(
             databaseId: AppwriteConfig.databaseId,
             collectionId: AppwriteConfig.garmentScansCollectionId,
-            queries: [Query.equal("userId", value: userId), Query.orderDesc("scanTimestamp")]
+            queries: [Query.orderDesc("scanTimestamp")]
         )
 
         return result.documents.compactMap { doc -> GarmentScanHistoryItem? in
@@ -318,10 +328,10 @@ class ScanDatabaseService {
                 databaseId: AppwriteConfig.databaseId,
                 collectionId: collectionId,
                 documentId: documentId,
-                data: ["imageRemoteFileId": AnyCodable(fileId)]
+                data: ["imageRemoteFileId": fileId]
             )
         } catch {
-            print("[ScanDB] Failed to update remote image ID: \(error.localizedDescription)")
+            Log.error("Failed to update remote image ID", context: ["error": error.localizedDescription])
         }
     }
 }

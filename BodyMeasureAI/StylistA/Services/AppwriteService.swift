@@ -8,7 +8,7 @@ class AppwriteConfig {
     static let scansCollectionId = "scans"
     static let bodyScansCollectionId = "body_scans"
     static let garmentScansCollectionId = "garment_scans"
-    static let imagesBucketId = "scan_images"
+    static let imagesBucketId = "69d3de08003511bfb242"
 }
 
 class AppwriteService {

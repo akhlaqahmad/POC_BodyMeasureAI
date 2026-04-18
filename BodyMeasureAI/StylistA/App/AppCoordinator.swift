@@ -95,6 +95,7 @@ final class AppCoordinator: ObservableObject {
     }
 
     func bodyCaptured(result: BodyScanResult) {
+        Log.info("Navigation: bodyCaptured — persisting body scan and navigating to results")
         bodyResult = result
         appendToPath(.results)
         // Persist body scan individually (fire-and-forget)
@@ -108,6 +109,7 @@ final class AppCoordinator: ObservableObject {
     }
 
     func garmentAnalysed(result: GarmentTagModel) {
+        Log.info("Navigation: garmentAnalysed — persisting garment scan and navigating to garmentResult")
         garmentResult = result
         appendToPath(.garmentResult)
         // Persist garment scan individually (fire-and-forget)
@@ -117,13 +119,14 @@ final class AppCoordinator: ObservableObject {
     }
 
     func completeScan() {
+        Log.info("Navigation: completeScan — saving session and navigating to finalResult")
         if let session = buildSession() {
             Task {
                 do {
                     try await ScanDatabaseService.shared.saveScanSession(session)
-                    print("Scan session successfully saved to Appwrite Database.")
+                    Log.info("Scan session successfully saved to Appwrite Database")
                 } catch {
-                    print("Failed to save scan session: \(error.localizedDescription)")
+                    Log.error("Failed to save scan session: \(error.localizedDescription)")
                 }
             }
         }
@@ -135,6 +138,7 @@ final class AppCoordinator: ObservableObject {
     }
 
     func newScan() {
+        Log.info("Navigation: newScan — resetting state and clearing path")
         bodyResult = nil
         garmentResult = nil
         bodyCaptureViewModel.clearResult()
@@ -144,6 +148,7 @@ final class AppCoordinator: ObservableObject {
     }
 
     func openHistory() {
+        Log.info("Navigation: openHistory")
         appendToPath(.history)
     }
 

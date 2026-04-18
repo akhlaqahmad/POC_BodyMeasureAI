@@ -23,6 +23,7 @@ final class HistoryViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     func loadHistory() async {
+        Log.info("HistoryViewModel: loadHistory started")
         isLoading = true
         errorMessage = nil
 
@@ -33,7 +34,9 @@ final class HistoryViewModel: ObservableObject {
             let (body, garment) = try await (bodyFetch, garmentFetch)
             bodyScans = body
             garmentScans = garment
+            Log.info("HistoryViewModel: loadHistory succeeded", context: ["bodyScans": body.count, "garmentScans": garment.count])
         } catch {
+            Log.error("HistoryViewModel: loadHistory failed", context: ["error": error.localizedDescription])
             errorMessage = error.localizedDescription
         }
 

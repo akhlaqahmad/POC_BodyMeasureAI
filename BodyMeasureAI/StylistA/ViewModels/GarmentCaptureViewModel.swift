@@ -22,6 +22,7 @@ final class GarmentCaptureViewModel: ObservableObject {
 
     /// Run color extraction + classifier, combine into GarmentTagModel, publish result.
     func analyzeGarment(image: UIImage) async {
+        Log.info("GarmentCaptureViewModel: analyzeGarment started")
         isAnalyzing = true
         errorMessage = nil
         analysisResult = nil
@@ -42,6 +43,7 @@ final class GarmentCaptureViewModel: ObservableObject {
         }
 
         analysisResult = result
+        Log.info("GarmentCaptureViewModel: analyzeGarment completed", context: ["category": result.category.rawValue])
     }
 
     func clearSelection() {

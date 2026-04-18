@@ -56,6 +56,9 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     // Multi-frame measurement buffer
     private var measurementBuffer: [BodyProportionModel] = []
     private let requiredBufferCount = 10
+    private var bufferAttemptCount: Int = 0
+    private var bufferInvalidCount: Int = 0
+    private var bufferConsecutiveInvalidCount: Int = 0
 
     /// Latest pixel buffer from camera for snapshot capture.
     private nonisolated(unsafe) var latestPixelBuffer: CVPixelBuffer?
@@ -78,6 +81,8 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     private let classificationEngine = BodyClassificationEngine()
 
     private static let captureDeviceTypes: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera]
+    
+    private var isConfiguringSession: Bool = false
 
     // MARK: - Setup
 
@@ -85,13 +90,13 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
             cameraDenied = false
-            configureCaptureSession()
+            configureCaptureSessionIfNeeded()
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
                 Task { @MainActor in
                     self?.cameraDenied = !granted
                     if granted {
-                        self?.configureCaptureSession()
+                        self?.configureCaptureSessionIfNeeded()
                     }
                 }
             }
@@ -101,19 +106,59 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     }
 
     func configureCaptureSession() {
-        sessionQueue.async { [weak self] in
-            guard let self = self else { return }
-            self._configureCaptureSession()
-            // Small delay ensures commitConfiguration has finished before running.
-            Thread.sleep(forTimeInterval: 0.1)
-            if !self.session.isRunning {
-                self.session.startRunning()
-            }
-        }
+        configureCaptureSessionIfNeeded(force: true)
     }
 
-    private func _configureCaptureSession() {
-        print("📷 _configureCaptureSession called. Current session running: \(session.isRunning), isFrontCamera: \(isFrontCamera)")
+    private func configureCaptureSessionIfNeeded(force: Bool = false) {
+        let desiredPosition: AVCaptureDevice.Position = isFrontCamera ? .front : .back
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            if self.isConfiguringSession {
+                return
+            }
+            self.isConfiguringSession = true
+            defer { self.isConfiguringSession = false }
+            
+            if !force, self.isSessionConfigured(for: desiredPosition) {
+                if !self.session.isRunning {
+                    self.session.startRunning()
+                }
+                return
+            }
+            
+            self._configureCaptureSession(desiredPosition: desiredPosition)
+        }
+    }
+    
+    private func isSessionConfigured(for position: AVCaptureDevice.Position) -> Bool {
+        guard session.outputs.isEmpty == false else { return false }
+        guard let input = session.inputs.compactMap({ $0 as? AVCaptureDeviceInput }).first else { return false }
+        return input.device.position == position
+    }
+    
+    private func _configureCaptureSession(desiredPosition: AVCaptureDevice.Position) {
+        Log.debug("_configureCaptureSession called", context: ["sessionRunning": session.isRunning, "isFrontCamera": (desiredPosition == .front)])
+        
+        let discovery = AVCaptureDevice.DiscoverySession(
+            deviceTypes: Self.captureDeviceTypes,
+            mediaType: .video,
+            position: desiredPosition
+        )
+        guard let camera = discovery.devices.first else {
+            Log.error("Failed to get camera", context: [
+                "position": desiredPosition.rawValue,
+                "availableCameras": AVCaptureDevice.DiscoverySession(deviceTypes: Self.captureDeviceTypes, mediaType: .video, position: .unspecified).devices.map { $0.localizedName }
+            ])
+            return
+        }
+        
+        let newInput: AVCaptureDeviceInput
+        do {
+            newInput = try AVCaptureDeviceInput(device: camera)
+        } catch {
+            Log.error("Error creating device input", context: ["error": error.localizedDescription])
+            return
+        }
         
         // Swapping camera inputs can temporarily pause the running pipeline.
         // Stop + restart makes the change deterministic and avoids frozen previews.
@@ -123,12 +168,11 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
         }
 
         session.beginConfiguration()
-        defer { 
-            session.commitConfiguration() 
-            print("📷 _configureCaptureSession finished.")
+        defer {
+            session.commitConfiguration()
+            Log.debug("_configureCaptureSession finished")
             
-            // Ensure the preview pipeline is running after reconfiguration.
-            if !session.isRunning {
+            if !session.isRunning, session.inputs.isEmpty == false {
                 session.startRunning()
             }
         }
@@ -137,34 +181,21 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
         // This makes switching much faster.
         let currentInputs = session.inputs
         for input in currentInputs {
-            print("📷 Removing input: \(input)")
+            Log.debug("Removing input: \(input)")
             session.removeInput(input)
         }
 
-        let position: AVCaptureDevice.Position = isFrontCamera ? .front : .back
-        print("📷 Requesting camera with position: \(position.rawValue)")
-        
-        let discovery = AVCaptureDevice.DiscoverySession(
-            deviceTypes: Self.captureDeviceTypes,
-            mediaType: .video,
-            position: position
-        )
-        guard let camera = discovery.devices.first else {
-            print("❌ Failed to get camera for position: \(position.rawValue)")
-            print("❌ Available cameras: \(AVCaptureDevice.DiscoverySession(deviceTypes: Self.captureDeviceTypes, mediaType: .video, position: .unspecified).devices.map { $0.localizedName })")
-            return
-        }
-        
-        do {
-            let input = try AVCaptureDeviceInput(device: camera)
-            if session.canAddInput(input) { 
-                session.addInput(input) 
-                print("📷 Successfully added input for camera: \(camera.localizedName)")
-            } else {
-                print("❌ Cannot add input to session")
+        Log.debug("Requesting camera", context: ["position": desiredPosition.rawValue])
+        if session.canAddInput(newInput) {
+            session.addInput(newInput)
+            Log.debug("Successfully added input", context: ["camera": camera.localizedName])
+        } else {
+            for input in currentInputs {
+                if session.canAddInput(input) {
+                    session.addInput(input)
+                }
             }
-        } catch {
-            print("❌ Error creating device input: \(error)")
+            Log.error("Cannot add input to session")
             return
         }
 
@@ -177,9 +208,9 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
             
             if session.canAddOutput(output) {
                 session.addOutput(output)
-                print("📷 Successfully added video output")
+                Log.debug("Successfully added video output")
             } else {
-                print("❌ Cannot add output to session")
+                Log.error("Cannot add output to session")
             }
         }
 
@@ -190,14 +221,14 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
                 connection.videoRotationAngle = 90
             }
             if connection.isVideoMirroringSupported {
-                connection.isVideoMirrored = (position == .front)
-                print("📷 Set video mirrored: \(connection.isVideoMirrored)")
+                connection.isVideoMirrored = (desiredPosition == .front)
+                Log.debug("Set video mirrored", context: ["mirrored": connection.isVideoMirrored])
             }
         }
     }
 
     func toggleCamera() {
-        print("🔄 toggleCamera tapped! Current state - isFrontCamera: \(isFrontCamera)")
+        Log.info("Toggle camera tapped", context: ["isFrontCamera": isFrontCamera])
         
         let targetIsFront = !isFrontCamera
         let targetPosition: AVCaptureDevice.Position = targetIsFront ? .front : .back
@@ -208,18 +239,13 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
         ).devices.isEmpty
         
         guard hasTargetCamera else {
-            print("❌ Toggle aborted. No camera found for target position: \(targetPosition.rawValue)")
+            Log.warn("Toggle aborted, no camera found", context: ["targetPosition": targetPosition.rawValue])
             return
         }
         
         isFrontCamera = targetIsFront
-        print("🔄 State toggled - new isFrontCamera: \(isFrontCamera)")
-        
-        sessionQueue.async { [weak self] in
-            guard let self = self else { return }
-            print("🔄 Async session queue: calling _configureCaptureSession")
-            self._configureCaptureSession()
-        }
+        Log.info("Camera toggled", context: ["isFrontCamera": isFrontCamera])
+        configureCaptureSessionIfNeeded(force: true)
     }
 
     func startSession() {
@@ -283,7 +309,7 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
                     AudioServicesPlaySystemSound(1108) // camera shutter
                     
                     // Check if we can actually capture now
-                    if self.isBodyDetected && self.currentConfidence >= self.minConfidenceToEnableCapture {
+                    if self.isBodyDetected && self.isStable && self.currentConfidence >= self.minConfidenceToEnableCapture {
                         self.startBufferingCapture()
                     } else {
                         self.bodyNotInFrameMessage = "Capture failed. Body not fully visible."
@@ -304,25 +330,60 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
         isBuffering = true
         measurementBuffer.removeAll()
         bufferProgress = 0.0
+        bufferAttemptCount = 0
+        bufferInvalidCount = 0
+        bufferConsecutiveInvalidCount = 0
+        bodyNotInFrameMessage = nil
     }
     
+    // Minimum physiological circumference thresholds (cm).
+    // Frames below these are rejected (e.g. side-view where left/right keypoints overlap).
+    private static let minShoulderCircumferenceCm: Double = 30.0
+    private static let minHipCircumferenceCm: Double = 40.0
+
     /// Process a new frame for buffering
     private func processFrameForBuffer(_ observation: VNHumanBodyPoseObservation, confidence: Double) {
         guard isBuffering else { return }
-        
+
+        bufferAttemptCount += 1
         let normalizer = KeypointNormalizer(userHeightCm: userHeightCm)
         if let model = normalizer.normalize(observation, overallConfidence: confidence) {
+            // Reject physiologically impossible measurements.
+            // In side view, left/right keypoints overlap in X, producing near-zero widths.
+            guard model.m1ShoulderCircumferenceCm >= Self.minShoulderCircumferenceCm,
+                  model.m2HipCircumferenceCm >= Self.minHipCircumferenceCm else {
+                bufferInvalidCount += 1
+                bufferConsecutiveInvalidCount += 1
+                checkBufferBailout(measurementsRejected: true)
+                return
+            }
+
             measurementBuffer.append(model)
             bufferProgress = Double(measurementBuffer.count) / Double(requiredBufferCount)
-            
+            bufferConsecutiveInvalidCount = 0
+
             if measurementBuffer.count >= requiredBufferCount {
                 finalizeCapture()
             }
         } else {
-            // Frame invalid (e.g. occlusion), cancel buffering
+            bufferInvalidCount += 1
+            bufferConsecutiveInvalidCount += 1
+            checkBufferBailout(measurementsRejected: false)
+        }
+    }
+
+    /// Check whether buffering should be abandoned due to too many failures.
+    private func checkBufferBailout(measurementsRejected: Bool) {
+        let maxAttempts = requiredBufferCount + 25
+        let maxConsecutiveInvalid = 8
+        if bufferAttemptCount >= maxAttempts || bufferConsecutiveInvalidCount >= maxConsecutiveInvalid {
             isBuffering = false
             bufferProgress = 0.0
-            bodyNotInFrameMessage = "Please stand still and ensure your full body is visible."
+            if measurementsRejected {
+                bodyNotInFrameMessage = "Measurements out of range. Please face the camera directly with your full body visible."
+            } else {
+                bodyNotInFrameMessage = "Please stand still and ensure your full body is visible."
+            }
         }
     }
     
@@ -373,15 +434,15 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
             gender: isFemale ? "female" : "male"
         )
         
-        // Debug logging so you can see everything in the Xcode console.
-        print("=== BodyCaptureViewModel.capture (Averaged) ===")
-        print("Average Confidence:", medianModel.captureConfidence)
-        print("Median M1 Shoulder Circumference (cm):", medianModel.m1ShoulderCircumferenceCm)
-        print("Median M2 Hip Circumference (cm):", medianModel.m2HipCircumferenceCm)
-        print("Median M3 Waist Circumference (cm):", medianModel.m3WaistCircumferenceCm)
-        print("Median V1 Torso Height (cm):", medianModel.v1TorsoHeightCm)
-        print("Median V2 Leg Length (cm):", medianModel.v2LegLengthCm)
-        print("Median Waist Prominence Score:", medianModel.waistProminenceScore)
+        Log.info("Capture finalized (median of \(measurementBuffer.count) frames)", context: [
+            "confidence": medianModel.captureConfidence,
+            "m1ShoulderCm": medianModel.m1ShoulderCircumferenceCm,
+            "m2HipCm": medianModel.m2HipCircumferenceCm,
+            "m3WaistCm": medianModel.m3WaistCircumferenceCm,
+            "v1TorsoCm": medianModel.v1TorsoHeightCm,
+            "v2LegCm": medianModel.v2LegLengthCm,
+            "waistProminence": medianModel.waistProminenceScore
+        ])
 
         // Save snapshot from latest camera frame
         if let buffer = latestPixelBuffer {
@@ -430,8 +491,7 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     /// Whether the capture button should be enabled.
     var canCapture: Bool {
         if isCountingDown { return false }
-        if selectedTimer > 0 { return true } // Allow starting timer even if not positioned
-        return isBodyDetected && currentConfidence >= minConfidenceToEnableCapture
+        return isBodyDetected && isStable && currentConfidence >= minConfidenceToEnableCapture
     }
 }
 
@@ -539,7 +599,7 @@ extension BodyCaptureViewModel: AVCaptureVideoDataOutputSampleBufferDelegate {
                     self.lastLoggedPercent = percent
                     self.lastLoggedCanCapture = canNowCapture
                     self.lastLogTime = now
-                    print("Live pose · confidence=\(percent)% · isStable=\(self.isStable) · canCapture=\(canNowCapture)")
+                    Log.debug("Live pose", context: ["confidence": "\(percent)%", "isStable": self.isStable, "canCapture": canNowCapture])
                 }
             }
         }

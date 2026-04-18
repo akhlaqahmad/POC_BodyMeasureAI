@@ -32,17 +32,17 @@ final class ImageStorageService {
     /// Save UIImage as JPEG locally. Returns the filename (not the full path).
     func saveImageLocally(image: UIImage, prefix: String) -> String? {
         guard let data = image.jpegData(compressionQuality: jpegQuality) else {
-            print("[ImageStorage] Failed to create JPEG data")
+            Log.error("Failed to create JPEG data")
             return nil
         }
         let filename = "\(prefix)_\(UUID().uuidString).jpg"
         let url = imagesDirectory.appendingPathComponent(filename)
         do {
             try data.write(to: url)
-            print("[ImageStorage] Saved \(filename) (\(data.count / 1024) KB)")
+            Log.info("Image saved locally", context: ["filename": filename, "sizeKB": data.count / 1024])
             return filename
         } catch {
-            print("[ImageStorage] Write failed: \(error.localizedDescription)")
+            Log.error("Image write failed", context: ["error": error.localizedDescription])
             return nil
         }
     }
@@ -82,7 +82,7 @@ final class ImageStorageService {
     func uploadToCloud(filename: String) async -> String? {
         let url = localPath(for: filename)
         guard fileManager.fileExists(atPath: url.path) else {
-            print("[ImageStorage] File not found for upload: \(filename)")
+            Log.warn("File not found for upload", context: ["filename": filename])
             return nil
         }
         do {
@@ -91,10 +91,10 @@ final class ImageStorageService {
                 fileId: ID.unique(),
                 file: InputFile.fromPath(url.path)
             )
-            print("[ImageStorage] Uploaded \(filename) → \(file.id)")
+            Log.info("Image uploaded to cloud", context: ["filename": filename, "fileId": file.id])
             return file.id
         } catch {
-            print("[ImageStorage] Upload failed: \(error.localizedDescription)")
+            Log.error("Image upload failed", context: ["error": error.localizedDescription])
             return nil
         }
     }
@@ -115,7 +115,7 @@ final class ImageStorageService {
             try data.write(to: url)
             return UIImage(data: data)
         } catch {
-            print("[ImageStorage] Download failed: \(error.localizedDescription)")
+            Log.error("Image download failed", context: ["error": error.localizedDescription])
             return nil
         }
     }
