@@ -27,7 +27,15 @@ final class GarmentCaptureViewModel: ObservableObject {
         analysisResult = nil
         defer { isAnalyzing = false }
 
+        AppLog.classification.info(
+            "garment classify start size=\(Int(image.size.width))×\(Int(image.size.height))"
+        )
+        let start = CFAbsoluteTimeGetCurrent()
         let result = await classifier.classify(image: image)
+        let durationMs = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+        AppLog.classification.info(
+            "garment classify done (\(durationMs)ms) category=\(result.category.rawValue, privacy: .public) conf=\(result.classificationConfidence, format: .fixed(precision: 2), privacy: .public)"
+        )
         analysisResult = result
     }
 

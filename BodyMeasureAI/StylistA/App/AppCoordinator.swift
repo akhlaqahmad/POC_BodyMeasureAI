@@ -50,15 +50,18 @@ final class AppCoordinator: ObservableObject {
     }
 
     private func appendToPath(_ step: FlowStep) {
+        AppLog.lifecycle.info("nav → \(String(describing: step), privacy: .public)")
         navigationPathBinding?.wrappedValue.append(step)
     }
 
     private func removeLastFromPath() {
         guard navigationPathBinding?.wrappedValue.isEmpty == false else { return }
+        AppLog.lifecycle.info("nav ← pop")
         navigationPathBinding?.wrappedValue.removeLast()
     }
 
     private func clearPath() {
+        AppLog.lifecycle.info("nav ⨯ clear")
         navigationPathBinding?.wrappedValue = NavigationPath()
     }
 
@@ -155,13 +158,16 @@ final class AppCoordinator: ObservableObject {
 
     /// Upload the full body+garment session. Idempotent per sessionId.
     func uploadCompletedSession(_ session: ScanSessionModel) {
-        guard !uploadedSessionIds.contains(session.sessionId) else { return }
+        guard !uploadedSessionIds.contains(session.sessionId) else {
+            AppLog.upload.debug("skip duplicate upload sessionId=\(session.sessionId, privacy: .public)")
+            return
+        }
         uploadedSessionIds.insert(session.sessionId)
-        uploadStatus = .uploading
+        setUploadStatus(.uploading)
         Task { [weak self] in
             let result = await BackendAPIClient.upload(session: session)
             await MainActor.run {
-                self?.uploadStatus = Self.mapStatus(result)
+                self?.setUploadStatus(Self.mapStatus(result))
             }
         }
     }
@@ -169,14 +175,31 @@ final class AppCoordinator: ObservableObject {
     /// Upload just the body scan (no garment captured). Idempotent per timestamp.
     func uploadBodyOnlyIfNeeded(_ body: BodyScanResult) {
         let key = ISO8601DateFormatter().string(from: body.measurements.timestamp)
-        guard !uploadedSessionIds.contains(key) else { return }
+        guard !uploadedSessionIds.contains(key) else {
+            AppLog.upload.debug("skip duplicate body-only upload key=\(key, privacy: .public)")
+            return
+        }
         uploadedSessionIds.insert(key)
-        uploadStatus = .uploading
+        setUploadStatus(.uploading)
         Task { [weak self] in
             let result = await BackendAPIClient.upload(bodyOnly: body)
             await MainActor.run {
-                self?.uploadStatus = Self.mapStatus(result)
+                self?.setUploadStatus(Self.mapStatus(result))
             }
+        }
+    }
+
+    private func setUploadStatus(_ status: UploadStatus) {
+        uploadStatus = status
+        switch status {
+        case .idle:
+            AppLog.upload.debug("status: idle")
+        case .uploading:
+            AppLog.upload.info("status: uploading…")
+        case .success(let id):
+            AppLog.upload.info("status: success remoteId=\(id, privacy: .public)")
+        case .failure(let msg):
+            AppLog.upload.error("status: failure \(msg, privacy: .public)")
         }
     }
 

@@ -247,6 +247,7 @@ struct FinalScanResultView: View {
         .navigationBarHidden(true)
         .onAppear {
             appeared = true
+            AppLog.lifecycle.info("FinalScanResultView.onAppear sessionId=\(session.sessionId, privacy: .public)")
             coordinator.uploadCompletedSession(session)
         }
     }
@@ -341,36 +342,6 @@ struct FinalScanResultView: View {
         let g = Double((value >> 8) & 0xFF) / 255.0
         let b = Double(value & 0xFF) / 255.0
         return Color(red: r, green: g, blue: b)
-    }
-}
-
-/// Small inline indicator for upload state so users know the session hit the
-/// admin DB. Styled to match the existing label vocabulary.
-private struct SyncStatusBadge: View {
-    let status: AppCoordinator.UploadStatus
-    var body: some View {
-        switch status {
-        case .idle:
-            EmptyView()
-        case .uploading:
-            HStack(spacing: 4) {
-                ProgressView().controlSize(.mini)
-                Text("SYNCING")
-                    .font(SFont.label(9))
-                    .tracking(2)
-                    .foregroundStyle(Color("sTertiary"))
-            }
-        case .success:
-            Text("SYNCED")
-                .font(SFont.label(9))
-                .tracking(2)
-                .foregroundStyle(Color("sTertiary"))
-        case .failure:
-            Text("SYNC FAILED")
-                .font(SFont.label(9))
-                .tracking(2)
-                .foregroundStyle(Color("sTertiary"))
-        }
     }
 }
 

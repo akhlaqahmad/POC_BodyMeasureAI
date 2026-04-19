@@ -43,10 +43,14 @@ struct ResultsView: View {
 
                     // Header
                     VStack(alignment: .leading, spacing: SSpacing.xs) {
-                        Text("SCAN RESULTS")
-                            .font(f(11))
-                            .tracking(3)
-                            .foregroundStyle(Color("sTertiary"))
+                        HStack {
+                            Text("SCAN RESULTS")
+                                .font(f(11))
+                                .tracking(3)
+                                .foregroundStyle(Color("sTertiary"))
+                            Spacer()
+                            SyncStatusBadge(status: coordinator.uploadStatus)
+                        }
                         Text("Body Profile")
                             .font(fDisplay(34, weight: .light))
                             .foregroundStyle(Color("sPrimary"))
@@ -254,6 +258,7 @@ struct ResultsView: View {
         .navigationBarHidden(true)
         .onAppear {
             appeared = true
+            AppLog.lifecycle.info("ResultsView.onAppear")
             coordinator.uploadBodyOnlyIfNeeded(result)
         }
         .sheet(isPresented: $showJSONSheet) {

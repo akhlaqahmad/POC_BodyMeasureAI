@@ -156,19 +156,17 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
             gender: isFemale ? "female" : "male"
         )
         
-        // Debug logging so you can see everything in the Xcode console.
-        print("=== BodyCaptureViewModel.capture ===")
-        print("Confidence:", currentConfidence)
-        print("M1 Shoulder Circumference (cm):", model.m1ShoulderCircumferenceCm)
-        print("M2 Hip Circumference (cm):", model.m2HipCircumferenceCm)
-        print("M3 Waist Circumference (cm):", model.m3WaistCircumferenceCm)
-        print("V1 Torso Height (cm):", model.v1TorsoHeightCm)
-        print("V2 Leg Length (cm):", model.v2LegLengthCm)
-        print("Waist Prominence Score:", model.waistProminenceScore)
-        if let json = result.prettyPrintedJSON() {
-            print("BodyScanResult JSON:")
-            print(json)
-        }
+        AppLog.capture.info(
+            """
+            captured: conf=\(self.currentConfidence, format: .fixed(precision: 2), privacy: .public) \
+            M1=\(model.m1ShoulderCircumferenceCm, format: .fixed(precision: 1), privacy: .public) \
+            M2=\(model.m2HipCircumferenceCm, format: .fixed(precision: 1), privacy: .public) \
+            M3=\(model.m3WaistCircumferenceCm, format: .fixed(precision: 1), privacy: .public) \
+            V1=\(model.v1TorsoHeightCm, format: .fixed(precision: 1), privacy: .public) \
+            V2=\(model.v2LegLengthCm, format: .fixed(precision: 1), privacy: .public) \
+            prominence=\(model.waistProminenceScore, format: .fixed(precision: 2), privacy: .public)
+            """
+        )
 
         capturedResult = result
     }
@@ -284,7 +282,7 @@ extension BodyCaptureViewModel: AVCaptureVideoDataOutputSampleBufferDelegate {
                     self.lastLoggedPercent = percent
                     self.lastLoggedCanCapture = canNowCapture
                     self.lastLogTime = now
-                    print("Live pose · confidence=\(percent)% · isStable=\(self.isStable) · canCapture=\(canNowCapture)")
+                    AppLog.capture.debug("pose conf=\(percent)% stable=\(self.isStable, privacy: .public) canCapture=\(canNowCapture, privacy: .public)")
                 }
             }
         }
