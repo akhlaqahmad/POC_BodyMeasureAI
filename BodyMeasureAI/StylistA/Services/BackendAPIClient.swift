@@ -46,6 +46,55 @@ enum BackendAPIClient {
         return await postJSON(dict: result.exportJSON, label: "bodyOnly")
     }
 
+    /// Fetch this device's scan history (body measurements + garment detail).
+    static func fetchHistory(limit: Int = 50) async -> Result<[ScanHistoryItem], BackendUploadError> {
+        var components = URLComponents(
+            url: BackendConfig.baseURL.appendingPathComponent("api/my/sessions"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [URLQueryItem(name: "limit", value: String(limit))]
+        let endpoint = components.url!
+
+        let deviceId = DeviceIdentity.current()
+        var req = URLRequest(url: endpoint)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-Id")
+        req.timeoutInterval = 15
+
+        AppLog.network.info("→ GET \(endpoint.absoluteString, privacy: .public) device=\(deviceId.prefix(8), privacy: .public)…")
+        let start = CFAbsoluteTimeGetCurrent()
+
+        do {
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            let durationMs = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            guard let http = resp as? HTTPURLResponse else { return .failure(.invalidResponse) }
+            guard (200...299).contains(http.statusCode) else {
+                let bodyStr = String(data: data, encoding: .utf8) ?? ""
+                AppLog.network.error("← \(http.statusCode) history (\(durationMs)ms) body=\(bodyStr.prefix(300), privacy: .public)")
+                return .failure(.httpStatus(http.statusCode, bodyStr))
+            }
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .custom { dec in
+                let s = try dec.singleValueContainer().decode(String.self)
+                let iso = ISO8601DateFormatter()
+                iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                if let d = iso.date(from: s) { return d }
+                iso.formatOptions = [.withInternetDateTime]
+                if let d = iso.date(from: s) { return d }
+                throw DecodingError.dataCorruptedError(
+                    in: dec, debugDescription: "Invalid ISO-8601 date: \(s)"
+                )
+            }
+            let wrapper = try decoder.decode(ScanHistoryResponse.self, from: data)
+            AppLog.network.info("← 200 history (\(durationMs)ms) items=\(wrapper.sessions.count)")
+            return .success(wrapper.sessions)
+        } catch {
+            let durationMs = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            AppLog.network.error("✗ history failed after \(durationMs)ms: \(error.localizedDescription, privacy: .public)")
+            return .failure(.transport(error))
+        }
+    }
+
     // MARK: - Transport
 
     private static func postJSON(

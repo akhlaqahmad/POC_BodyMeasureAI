@@ -18,6 +18,8 @@ enum FlowStep: Hashable {
     case garmentResult
     case finalResult
     case validationMode
+    case scanHistory
+    case scanHistoryDetail(ScanHistoryItem.ID)
 }
 
 @MainActor
@@ -30,6 +32,10 @@ final class AppCoordinator: ObservableObject {
 
     @Published var bodyResult: BodyScanResult?
     @Published var garmentResult: GarmentTagModel?
+
+    /// Cached history items from the last fetch so detail pushes don't need
+    /// a separate request. Populated by ScanHistoryView when it loads.
+    @Published var historyItems: [ScanHistoryItem] = []
 
     /// Status of the most recent upload to the admin backend. Observed by
     /// results screens that want to surface a "Synced" indicator.
@@ -127,6 +133,18 @@ final class AppCoordinator: ObservableObject {
 
     func openValidationMode() {
         appendToPath(.validationMode)
+    }
+
+    func openScanHistory() {
+        appendToPath(.scanHistory)
+    }
+
+    func openScanHistoryDetail(_ item: ScanHistoryItem) {
+        // Ensure the item is cached so the destination view can resolve it.
+        if !historyItems.contains(where: { $0.id == item.id }) {
+            historyItems.append(item)
+        }
+        appendToPath(.scanHistoryDetail(item.id))
     }
 
     func newScan() {

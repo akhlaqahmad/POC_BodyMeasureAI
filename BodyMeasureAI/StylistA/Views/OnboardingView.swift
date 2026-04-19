@@ -11,6 +11,7 @@ struct OnboardingView: View {
     @Binding var heightCm: Double
     @Binding var isFemale: Bool
     var onStartScan: () -> Void
+    var onOpenHistory: () -> Void
 
     @State private var heightText: String = ""
     @State private var appeared = false
@@ -21,13 +22,27 @@ struct OnboardingView: View {
 
             VStack(spacing: 0) {
 
-                // Wordmark top left
+                // Wordmark top left + history entry top right
                 HStack {
                     Text("STYLISTA")
                         .font(SFont.label(13))
                         .tracking(6)
                         .foregroundStyle(Color("sPrimary"))
                     Spacer()
+                    Button(action: onOpenHistory) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "clock.arrow.circlepath")
+                                .font(.system(size: 12, weight: .medium))
+                            Text("HISTORY")
+                                .font(SFont.label(11))
+                                .tracking(2)
+                        }
+                        .foregroundStyle(Color("sSecondary"))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color("sSurface"))
+                        .clipShape(Capsule())
+                    }
                 }
                 .padding(.horizontal, SSpacing.lg)
                 .padding(.top, 56)
