@@ -108,6 +108,7 @@ struct MultiAngleBodyScanView: View {
                 }
             }
         }
+        .keepScreenAwake()
     }
 
     private func handleCapture(_ result: BodyScanResult) {

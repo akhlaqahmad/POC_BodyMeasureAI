@@ -31,8 +31,34 @@ final class KeypointNormalizer {
     /// User height in cm — used as the scale anchor for all measurements.
     let userHeightCm: Double
 
-    init(userHeightCm: Double) {
+    /// Gender is used to pick depth ratios (men carry thickness higher up,
+    /// women's hip depth/waist ratio differ slightly). Defaults to
+    /// `nonBinary` which uses neutral ratios.
+    let gender: Gender
+
+    init(userHeightCm: Double, gender: Gender = .nonBinary) {
         self.userHeightCm = userHeightCm
+        self.gender = gender
+    }
+
+    /// Depth ratios (body depth ÷ body width) per measurement and gender.
+    /// These multiply the real width to get the ellipse minor axis before
+    /// feeding into the Ramanujan circumference formula.
+    private struct DepthRatios {
+        let shoulder: Double
+        let hip: Double
+        let waist: Double
+    }
+
+    private var depthRatios: DepthRatios {
+        switch gender {
+        case .male:
+            return DepthRatios(shoulder: 0.45, hip: 0.58, waist: 0.45)
+        case .female:
+            return DepthRatios(shoulder: 0.40, hip: 0.58, waist: 0.40)
+        case .nonBinary:
+            return DepthRatios(shoulder: 0.42, hip: 0.58, waist: 0.42)
+        }
     }
 
     /// Converts a body pose observation into a BodyProportionModel with M1, M2, M3, V1, V2 in cm.
@@ -54,9 +80,10 @@ final class KeypointNormalizer {
         }
 
         // NOW apply elliptical circumference on real cm values (halfWidth in cm).
-        let m1 = ellipticalCircumference(halfWidth: rawM1Cm / 2, depthRatio: 0.42)
-        let m2 = ellipticalCircumference(halfWidth: rawM2Cm / 2, depthRatio: 0.62)
-        let m3 = ellipticalCircumference(halfWidth: rawM3Cm / 2, depthRatio: 0.55)
+        let ratios = depthRatios
+        let m1 = ellipticalCircumference(halfWidth: rawM1Cm / 2, depthRatio: ratios.shoulder)
+        let m2 = ellipticalCircumference(halfWidth: rawM2Cm / 2, depthRatio: ratios.hip)
+        let m3 = ellipticalCircumference(halfWidth: rawM3Cm / 2, depthRatio: ratios.waist)
 
         print("[DEBUG] scaleFactor=\(scaleFactor)")
         print("[DEBUG] rawM1=\(rawM1Cm) → circ=\(m1)")
@@ -223,22 +250,39 @@ final class KeypointNormalizer {
         return normalizedWidth * scaleFactor
     }
 
-    /// M3: Waist raw width in cm. Root + left/right hip horizontal span × scaleFactor; fallback hip×0.85.
+    /// M3: Waist raw width in cm.
+    ///
+    /// The Vision `root` joint sits at the pelvis, not the anatomical waist,
+    /// so using it as a waist point inflates the reading (observed 92 cm vs
+    /// 67 cm true waist in client testing). Instead we interpolate left- and
+    /// right-side points at ~35% of the shoulder→hip distance from the
+    /// shoulders, which is the anatomical waist position.
+    ///
+    /// Fallback chain:
+    ///   1. Interpolate L/R waist from shoulders + hips (preferred).
+    ///   2. `hip * 0.78` if shoulders are missing.
     private func extractM3RawWidthCm(
         _ observation: VNHumanBodyPoseObservation,
         scaleFactor: Double
     ) -> Double? {
-        let root = point(for: .root, in: observation)
+        let ls = point(for: .leftShoulder, in: observation)
+        let rs = point(for: .rightShoulder, in: observation)
         let lh = point(for: .leftHip, in: observation)
         let rh = point(for: .rightHip, in: observation)
-        if let r = root, let l = lh, let right = rh {
-            let halfFromLeft = abs(r.x - l.x)
-            let halfFromRight = abs(r.x - right.x)
-            let normalizedWidth = halfFromLeft + halfFromRight
+
+        if let leftShoulder = ls, let rightShoulder = rs,
+           let leftHip = lh, let rightHip = rh {
+            // 35% of the vertical drop from shoulder to hip lands roughly at
+            // the natural waist (narrowest torso cross-section).
+            let t = 0.35
+            let leftWaistX = leftShoulder.x + (leftHip.x - leftShoulder.x) * t
+            let rightWaistX = rightShoulder.x + (rightHip.x - rightShoulder.x) * t
+            let normalizedWidth = abs(rightWaistX - leftWaistX)
             return normalizedWidth * scaleFactor
         }
+
         guard let m2 = extractM2RawWidthCm(observation, scaleFactor: scaleFactor) else { return nil }
-        return m2 * 0.85
+        return m2 * 0.78
     }
 
     /// V1: Torso height (cm). Top of head (nose) to widest hip point (hip midpoint).

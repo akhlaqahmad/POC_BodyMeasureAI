@@ -320,7 +320,7 @@ private extension ResultsView {
         guard let angles = result.multiAngleMeasurements else { return result.measurements }
         switch selectedAngleIndex {
         case 1: return angles.side
-        case 2: return angles.back
+        case 2: return angles.back ?? angles.front
         default: return angles.front
         }
     }

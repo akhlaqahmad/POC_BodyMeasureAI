@@ -76,9 +76,40 @@ final class AppCoordinator: ObservableObject {
         set { bodyCaptureViewModel.userHeightCm = newValue }
     }
 
-    var isFemale: Bool {
-        get { bodyCaptureViewModel.isFemale }
-        set { bodyCaptureViewModel.isFemale = newValue }
+    var gender: Gender {
+        get { bodyCaptureViewModel.gender }
+        set { bodyCaptureViewModel.gender = newValue }
+    }
+
+    /// One-shot migration for users upgrading from a build that persisted a
+    /// `isFemale` UserDefaults boolean. If the new `gender` key is unset and
+    /// the legacy key exists, map it and delete the legacy key. Also persists
+    /// further `gender` changes via a KVO-free observer.
+    func migrateLegacyGenderIfNeeded() {
+        let defaults = UserDefaults.standard
+        let newKey = "gender"
+        let legacyKey = "isFemale"
+
+        if defaults.string(forKey: newKey) == nil,
+           defaults.object(forKey: legacyKey) != nil {
+            let isFemale = defaults.bool(forKey: legacyKey)
+            let migrated: Gender = isFemale ? .female : .male
+            defaults.set(migrated.rawValue, forKey: newKey)
+            defaults.removeObject(forKey: legacyKey)
+            bodyCaptureViewModel.gender = migrated
+            AppLog.lifecycle.info(
+                "migrated isFemale=\(isFemale, privacy: .public) → gender=\(migrated.rawValue, privacy: .public)"
+            )
+        } else if let stored = defaults.string(forKey: newKey),
+                  let g = Gender(rawValue: stored) {
+            bodyCaptureViewModel.gender = g
+        }
+    }
+
+    /// Persist the current gender choice to UserDefaults. Call sites: after
+    /// onboarding changes the picker.
+    func persistGender() {
+        UserDefaults.standard.set(gender.rawValue, forKey: "gender")
     }
 
     /// Request camera permission first; only then navigate to body capture.

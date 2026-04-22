@@ -13,6 +13,8 @@ struct BodyCaptureView: View {
     @ObservedObject var viewModel: BodyCaptureViewModel
     var onCaptured: (BodyScanResult) -> Void
 
+    @StateObject private var speech = SpeechGuidanceService()
+
     var body: some View {
         ZStack {
             CameraPreviewView(session: viewModel.session)
@@ -25,6 +27,16 @@ struct BodyCaptureView: View {
 
             SkeletonOverlayView(observation: viewModel.currentObservation)
                 .ignoresSafeArea()
+
+            // Auto-capture countdown (overrides capture UI when active)
+            if let count = viewModel.autoCaptureCountdown {
+                Text("\(count)")
+                    .font(.system(size: 144, weight: .thin, design: .rounded))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.5), radius: 8)
+                    .transition(.scale.combined(with: .opacity))
+                    .id(count)
+            }
 
             // Top gradient + instruction
             VStack(alignment: .leading, spacing: SSpacing.xs) {
@@ -50,6 +62,15 @@ struct BodyCaptureView: View {
                             .background(.white.opacity(0.15))
                             .clipShape(Capsule())
                     }
+                    Button(action: { viewModel.flipCamera() }) {
+                        Image(systemName: "camera.rotate")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.white)
+                            .frame(width: 36, height: 36)
+                            .background(.white.opacity(0.15))
+                            .clipShape(Circle())
+                    }
+                    .accessibilityLabel("Flip camera")
                 }
                 .padding(SSpacing.md)
                 .padding(.top, 60) // extra space from very top so text isn't flush against camera notch
@@ -200,8 +221,41 @@ struct BodyCaptureView: View {
                 }
             }
         }
-        .onAppear { viewModel.requestCameraAndConfigure() }
-        .onDisappear { viewModel.stopSession() }
+        .onAppear {
+            speech.resetDedup()
+            viewModel.requestCameraAndConfigure()
+        }
+        .onDisappear {
+            viewModel.stopSession()
+            viewModel.cancelAutoCapture()
+            speech.stopAll()
+        }
+        .onChange(of: viewModel.isBodyDetected) { _, detected in
+            if detected { speech.speak(.bodyDetected) }
+        }
+        .onChange(of: viewModel.bodyNotInFrameMessage) { _, msg in
+            if msg != nil { speech.speak(.stepBack) }
+        }
+        .onChange(of: viewModel.isReadyForAutoCapture) { _, ready in
+            if ready {
+                speech.speak(.holdStill)
+                speech.speak(.countdown3, force: true)
+                viewModel.startAutoCaptureCountdown { result in
+                    speech.speak(.captured, force: true)
+                    onCaptured(result)
+                }
+            } else {
+                viewModel.cancelAutoCapture()
+            }
+        }
+        .onChange(of: viewModel.autoCaptureCountdown) { _, newValue in
+            switch newValue {
+            case 2: speech.speak(.countdown2, force: true)
+            case 1: speech.speak(.countdown1, force: true)
+            default: break
+            }
+        }
+        .keepScreenAwake()
     }
 
     private var topInstructionText: String {

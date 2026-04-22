@@ -30,13 +30,24 @@ final class BodyClassificationEngine {
         m1: Double, m2: Double, m3: Double,
         v1: Double, v2: Double,
         userHeightCm: Double,
-        isFemale: Bool,
+        gender: Gender,
         waistProminenceScore: Double = 0.0
     ) -> BodyClassificationOutput {
-        if isFemale {
-            return classifyWomen(m1: m1, m2: m2, m3: m3, v1: v1, v2: v2, userHeightCm: userHeightCm)
-        } else {
+        switch gender {
+        case .female:
+            return classifyWomen(
+                m1: m1, m2: m2, m3: m3, v1: v1, v2: v2,
+                userHeightCm: userHeightCm, usesGenderedLanguage: true
+            )
+        case .male:
             return classifyMen(m1: m1, m2: m2, m3: m3, waistProminenceScore: waistProminenceScore)
+        case .nonBinary:
+            // Uses the 5-shape logic (more nuanced than the male path) but with
+            // gender-neutral phrasing so nothing in the output reads as feminine.
+            return classifyWomen(
+                m1: m1, m2: m2, m3: m3, v1: v1, v2: v2,
+                userHeightCm: userHeightCm, usesGenderedLanguage: false
+            )
         }
     }
 
@@ -45,7 +56,8 @@ final class BodyClassificationEngine {
     private func classifyWomen(
         m1: Double, m2: Double, m3: Double,
         v1: Double, v2: Double,
-        userHeightCm: Double
+        userHeightCm: Double,
+        usesGenderedLanguage: Bool
     ) -> BodyClassificationOutput {
         let vertical = verticalType(v1: v1, v2: v2)
         let isPetite = userHeightCm < Self.petiteHeightCm
@@ -53,17 +65,29 @@ final class BodyClassificationEngine {
         // Horizontal shape (we never return the label; only pick the message)
         let message: String
         if isHourglass(m1: m1, m2: m2, m3: m3) {
-            message = "Your beautiful proportions mean we can highlight your natural waist and celebrate your balanced curves."
+            message = usesGenderedLanguage
+                ? "Your beautiful proportions mean we can highlight your natural waist and celebrate your balanced curves."
+                : "Your proportions allow us to highlight your natural waistline and show off balanced shape."
         } else if isRectangle(m1: m1, m2: m2, m3: m3) {
-            message = "Your elegant frame gives us the opportunity to create soft curves and define a graceful waistline."
+            message = usesGenderedLanguage
+                ? "Your elegant frame gives us the opportunity to create soft curves and define a graceful waistline."
+                : "Your frame gives us room to add soft shape and define a clean waistline."
         } else if isInvertedTriangle(m1: m1, m2: m2) {
-            message = "We'll focus on balancing your confident shoulders with styles that enhance your lower half."
+            message = usesGenderedLanguage
+                ? "We'll focus on balancing your confident shoulders with styles that enhance your lower half."
+                : "We'll balance your strong shoulders with styles that add definition below."
         } else if isTriangle(m1: m1, m2: m2) {
-            message = "Your gorgeous hips give us a chance to draw attention upward and create beautiful balance."
+            message = usesGenderedLanguage
+                ? "Your gorgeous hips give us a chance to draw attention upward and create beautiful balance."
+                : "We'll draw attention upward to balance your lower half and create a cleaner line."
         } else if isRound(m1: m1, m2: m2, m3: m3) {
-            message = "Now that we know your lovely shape, we can choose styles that enhance your best features."
+            message = usesGenderedLanguage
+                ? "Now that we know your lovely shape, we can choose styles that enhance your best features."
+                : "Now that we know your shape, we can choose styles that highlight your best features."
         } else {
-            message = "Your elegant frame gives us the opportunity to create soft curves and define a graceful waistline."
+            message = usesGenderedLanguage
+                ? "Your elegant frame gives us the opportunity to create soft curves and define a graceful waistline."
+                : "Your frame gives us room to add soft shape and define a clean waistline."
         }
 
         let petiteNote = " As a petite frame, vertical lines and clean single-colour dressing will add beautiful length."

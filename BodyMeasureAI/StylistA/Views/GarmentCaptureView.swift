@@ -54,7 +54,9 @@ struct GarmentCaptureView: View {
                     if viewModel.isAnalyzing {
                         HStack(spacing: SSpacing.sm) {
                             ProgressView().tint(Color("sPrimary"))
-                            Text("Analysing…")
+                            Text(viewModel.measureGarmentBeta
+                                 ? "Analysing + measuring…"
+                                 : "Analysing…")
                                 .font(SFont.label(14))
                                 .foregroundStyle(Color("sSecondary"))
                         }
@@ -64,9 +66,34 @@ struct GarmentCaptureView: View {
                         .clipShape(RoundedRectangle(cornerRadius: SRadius.md))
                         .padding(.horizontal, SSpacing.lg)
                     } else {
+                        Toggle(isOn: $viewModel.measureGarmentBeta) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Measure garment (beta)")
+                                    .font(SFont.label(13))
+                                    .foregroundStyle(Color("sPrimary"))
+                                Text("Place a credit card flat next to the garment for scale.")
+                                    .font(SFont.body(11))
+                                    .foregroundStyle(Color("sTertiary"))
+                            }
+                        }
+                        .tint(Color("sAccent"))
+                        .padding(.horizontal, SSpacing.lg)
+                        .padding(.bottom, SSpacing.xs)
+
+                        if let note = viewModel.measurementNote {
+                            Text(note)
+                                .font(SFont.body(12))
+                                .foregroundStyle(Color("sError"))
+                                .padding(.horizontal, SSpacing.lg)
+                                .padding(.bottom, SSpacing.xs)
+                        }
+
                         Button(action: {
                             Task {
-                                await viewModel.analyzeGarment(image: image)
+                                await viewModel.analyzeGarment(
+                                    image: image,
+                                    body: coordinator.bodyResult
+                                )
                                 if let result = viewModel.analysisResult {
                                     coordinator.garmentAnalysed(result: result)
                                 }
@@ -165,6 +192,7 @@ struct GarmentCaptureView: View {
                 showPhotoLibrary = false
             }
         }
+        .keepScreenAwake()
     }
 
     private func garmentSourceButton(

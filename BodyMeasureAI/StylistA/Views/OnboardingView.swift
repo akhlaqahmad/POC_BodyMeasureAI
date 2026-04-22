@@ -9,7 +9,7 @@ import SwiftUI
 
 struct OnboardingView: View {
     @Binding var heightCm: Double
-    @Binding var isFemale: Bool
+    @Binding var gender: Gender
     var onStartScan: () -> Void
     var onOpenHistory: () -> Void
 
@@ -114,14 +114,10 @@ struct OnboardingView: View {
                             .tracking(2)
                             .foregroundStyle(Color("sTertiary"))
 
-                        Picker("", selection: Binding<String>(
-                            get: { isFemale ? "female" : "male" },
-                            set: { newValue in
-                                isFemale = (newValue == "female")
+                        Picker("", selection: $gender) {
+                            ForEach(Gender.allCases, id: \.self) { g in
+                                Text(g.displayName).tag(g)
                             }
-                        )) {
-                            Text("Male").tag("male")
-                            Text("Female").tag("female")
                         }
                         .pickerStyle(.segmented)
                         .tint(.black)

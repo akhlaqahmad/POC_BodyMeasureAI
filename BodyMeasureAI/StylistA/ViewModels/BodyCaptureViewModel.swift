@@ -25,12 +25,22 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     @Published private(set) var isStable: Bool = false
     /// Shown when body is detected but ankles are out of frame (full body must be visible).
     @Published var bodyNotInFrameMessage: String?
+    /// Auto-capture countdown remaining in whole seconds, or nil when not counting down.
+    @Published private(set) var autoCaptureCountdown: Int? = nil
 
     private var stableFrameCount: Int = 0
     /// For POC: 6 frames so stability is achievable but not too jumpy.
     private static let stableFramesRequired = 6
+    /// Need more stable frames before auto-capture fires than the UI button needs.
+    private static let stableFramesRequiredForAuto = 10
     /// Build stability when confidence >= 0.45 so 48–49% frames still count (capture still needs >= 0.5).
     private let minConfidenceForStability: Double = 0.45
+    /// Frames of sub-threshold confidence tolerated before we reset stability
+    /// (a 200 ms grace window at ~15 fps post-throttle).
+    private static let badFrameGraceFrames = 3
+    private var badFramesSinceStable: Int = 0
+    /// Countdown task so we can cancel if the body is lost mid-countdown.
+    private var autoCaptureTask: Task<Void, Never>? = nil
     // Debug: throttle logging so console doesn't flicker every frame.
     private var lastLoggedPercent: Int = -1
     private var lastLoggedCanCapture: Bool = false
@@ -39,7 +49,7 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     // MARK: - User inputs (set from OnboardingView)
 
     @Published var userHeightCm: Double = 170
-    @Published var isFemale: Bool = true
+    @Published var gender: Gender = .female
 
     // MARK: - Capture session
 
@@ -49,6 +59,10 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     private static let processEveryNthFrame = 5
     /// POC: enable capture when confidence >= 0.50.
     private let minConfidenceToEnableCapture: Double = 0.5
+
+    /// Default to the front (selfie) camera: users typically scan themselves.
+    /// Flip button lets an assistant use the back camera.
+    @Published private(set) var cameraPosition: AVCaptureDevice.Position = .front
 
     private let classificationEngine = BodyClassificationEngine()
 
@@ -90,7 +104,21 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
         defer { session.commitConfiguration() }
 
         session.sessionPreset = .hd1920x1080
-        guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
+        applyCameraInputAndOutput()
+    }
+
+    /// Adds the device input and video-data output for `cameraPosition`.
+    /// Assumes caller has bracketed beginConfiguration / commitConfiguration.
+    private func applyCameraInputAndOutput() {
+        // Tear down any prior inputs/outputs so flipping doesn't stack them.
+        session.inputs.forEach { session.removeInput($0) }
+        session.outputs.forEach { session.removeOutput($0) }
+
+        guard let camera = AVCaptureDevice.default(
+            .builtInWideAngleCamera,
+            for: .video,
+            position: cameraPosition
+        ) else {
             Task { @MainActor in cameraDenied = true }
             return
         }
@@ -103,11 +131,38 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
         output.setSampleBufferDelegate(self, queue: visionQueue)
         if session.canAddOutput(output) {
             session.addOutput(output)
-            // Ensure portrait orientation so Vision keypoints align with preview.
-            if let connection = output.connection(with: .video),
-               connection.isVideoRotationAngleSupported(90) {
-                connection.videoRotationAngle = 90
+            if let connection = output.connection(with: .video) {
+                // Portrait orientation so Vision keypoints align with preview.
+                if connection.isVideoRotationAngleSupported(90) {
+                    connection.videoRotationAngle = 90
+                }
+                // Mirror the front-camera feed so the user sees themselves
+                // naturally. Vision operates on the buffer (already mirrored
+                // at the buffer level when this flag is true), and the
+                // SkeletonOverlayView draws from normalized coords — it stays
+                // consistent with the mirrored preview.
+                if connection.isVideoMirroringSupported {
+                    connection.automaticallyAdjustsVideoMirroring = false
+                    connection.isVideoMirrored = cameraPosition == .front
+                }
             }
+        }
+    }
+
+    /// Flip between front and back cameras. Resets live state so the skeleton
+    /// and confidence don't carry over from the previous feed.
+    func flipCamera() {
+        let newPosition: AVCaptureDevice.Position = cameraPosition == .front ? .back : .front
+        cameraPosition = newPosition
+        resetLiveState()
+        sessionQueue.async { [weak self] in
+            guard let self = self else { return }
+            let wasRunning = self.session.isRunning
+            if wasRunning { self.session.stopRunning() }
+            self.session.beginConfiguration()
+            self.applyCameraInputAndOutput()
+            self.session.commitConfiguration()
+            if wasRunning { self.session.startRunning() }
         }
     }
 
@@ -131,7 +186,7 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
         // Only allow capture when UI says we can capture (green button).
         guard canCapture, let observation = currentObservation else { return }
 
-        let normalizer = KeypointNormalizer(userHeightCm: userHeightCm)
+        let normalizer = KeypointNormalizer(userHeightCm: userHeightCm, gender: gender)
         guard let model = normalizer.normalize(observation, overallConfidence: currentConfidence) else {
             return
         }
@@ -143,7 +198,7 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
             v1: model.v1TorsoHeightCm,
             v2: model.v2LegLengthCm,
             userHeightCm: userHeightCm,
-            isFemale: isFemale,
+            gender: gender,
             waistProminenceScore: model.waistProminenceScore
         )
 
@@ -153,7 +208,7 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
             verticalType: output.verticalType,
             isPetite: output.isPetite,
             userHeightCm: userHeightCm,
-            gender: isFemale ? "female" : "male"
+            gender: gender.rawValue
         )
         
         AppLog.capture.info(
@@ -183,11 +238,50 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
         isBodyDetected = false
         currentConfidence = 0
         stableFrameCount = 0
+        badFramesSinceStable = 0
         isStable = false
         bodyNotInFrameMessage = nil
         lastLoggedPercent = -1
         lastLoggedCanCapture = false
         lastLogTime = 0
+        cancelAutoCapture()
+    }
+
+    // MARK: - Auto-capture countdown
+
+    /// Begin a 3-second countdown that calls `capture()` at zero. Safe to call
+    /// repeatedly — no-op if a countdown is already running.
+    func startAutoCaptureCountdown(onCapture: @escaping (BodyScanResult) -> Void) {
+        guard autoCaptureTask == nil, canCapture else { return }
+        autoCaptureCountdown = 3
+        autoCaptureTask = Task { [weak self] in
+            guard let self = self else { return }
+            for n in [3, 2, 1] {
+                self.autoCaptureCountdown = n
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                if Task.isCancelled { return }
+                // Abort if the scan state decayed during the tick.
+                if !self.canCapture || !self.isStable {
+                    self.autoCaptureCountdown = nil
+                    self.autoCaptureTask = nil
+                    return
+                }
+            }
+            self.autoCaptureCountdown = nil
+            self.capture()
+            if let result = self.capturedResult {
+                onCapture(result)
+            }
+            self.autoCaptureTask = nil
+        }
+    }
+
+    /// Cancel an in-flight countdown (called when body moves out of frame or
+    /// view disappears). Safe to call when no countdown is running.
+    func cancelAutoCapture() {
+        autoCaptureTask?.cancel()
+        autoCaptureTask = nil
+        autoCaptureCountdown = nil
     }
 
     /// Whether the capture button should be enabled.
@@ -195,6 +289,12 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     /// as detection confidence passes the threshold.
     var canCapture: Bool {
         isBodyDetected && currentConfidence >= minConfidenceToEnableCapture
+    }
+
+    /// Whether the pose has been stable long enough to trigger auto-capture.
+    /// Stricter than `canCapture` to avoid snapping the photo on a brief peak.
+    var isReadyForAutoCapture: Bool {
+        canCapture && isStable && stableFrameCount >= Self.stableFramesRequiredForAuto
     }
 }
 
@@ -259,16 +359,27 @@ extension BodyCaptureViewModel: AVCaptureVideoDataOutputSampleBufferDelegate {
             self.bodyNotInFrameMessage = nil
             self.isBodyDetected = true
 
-            // Build stability when confidence >= 0.45 so 48–49% counts; one bad frame only decrements.
+            // Build stability when confidence >= 0.45. Once stable, tolerate
+            // up to `badFrameGraceFrames` sub-threshold frames (~200 ms at
+            // 15 fps post-throttle) before resetting — this stops the UI from
+            // calling "stand still" on single-frame flickers when the user is
+            // actually motionless.
             if confidence >= self.minConfidenceForStability {
-                if !self.isStable {
-                    self.stableFrameCount = min(self.stableFrameCount + 1, Self.stableFramesRequired)
-                    if self.stableFrameCount >= Self.stableFramesRequired {
-                        self.isStable = true
-                    }
+                self.badFramesSinceStable = 0
+                self.stableFrameCount = min(
+                    self.stableFrameCount + 1,
+                    Self.stableFramesRequiredForAuto
+                )
+                if self.stableFrameCount >= Self.stableFramesRequired {
+                    self.isStable = true
                 }
-            } else if !self.isStable {
-                self.stableFrameCount = max(0, self.stableFrameCount - 1)
+            } else {
+                self.badFramesSinceStable += 1
+                if self.badFramesSinceStable >= Self.badFrameGraceFrames {
+                    self.stableFrameCount = 0
+                    self.isStable = false
+                    self.cancelAutoCapture()
+                }
             }
 
             // Throttled debug: log when canCapture changes or at most once per second.

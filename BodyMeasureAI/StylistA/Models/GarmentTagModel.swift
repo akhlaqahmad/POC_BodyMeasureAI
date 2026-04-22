@@ -94,6 +94,40 @@ enum VisualWeight: String, Codable, CaseIterable {
     case unknown = "Unknown"
 }
 
+// MARK: - Garment measurements (beta)
+
+enum GarmentMeasurementMethod: String, Codable {
+    case creditCard = "credit_card"
+    case manual
+    case unknown
+}
+
+struct GarmentMeasurements: Codable {
+    var chestWidthCm: Double?
+    var garmentLengthCm: Double?
+    var shoulderWidthCm: Double?
+    var waistWidthCm: Double?
+    var method: GarmentMeasurementMethod
+    var pixelsPerCm: Double?
+    var confidence: Double?
+}
+
+enum GarmentFitRating: String, Codable {
+    case snug
+    case regular
+    case relaxed
+    case oversized
+    case unknown
+}
+
+struct GarmentFitAssessment: Codable {
+    var overallFit: GarmentFitRating
+    var easeChestCm: Double?
+    var easeWaistCm: Double?
+    var easeHipCm: Double?
+    var notes: String?
+}
+
 // MARK: - GarmentTagModel
 
 struct GarmentTagModel: Codable {
@@ -107,6 +141,8 @@ struct GarmentTagModel: Codable {
     var garmentLength: GarmentLength
     var visualWeight: VisualWeight
     var classificationConfidence: Double
+    var measurements: GarmentMeasurements?
+    var fitAssessment: GarmentFitAssessment?
 }
 
 // MARK: - JSON export (matches spec)
@@ -127,6 +163,24 @@ extension GarmentTagModel {
         ]
         if let n = neckline, n != .unknown { out["neckline"] = n.rawValue }
         if let s = sleeveLength, s != .unknown { out["sleeveLength"] = s.rawValue }
+        if let m = measurements {
+            var mDict: [String: Any] = ["method": m.method.rawValue]
+            if let v = m.chestWidthCm { mDict["chestWidthCm"] = v }
+            if let v = m.garmentLengthCm { mDict["garmentLengthCm"] = v }
+            if let v = m.shoulderWidthCm { mDict["shoulderWidthCm"] = v }
+            if let v = m.waistWidthCm { mDict["waistWidthCm"] = v }
+            if let v = m.pixelsPerCm { mDict["pixelsPerCm"] = v }
+            if let v = m.confidence { mDict["confidence"] = v }
+            out["measurements"] = mDict
+        }
+        if let f = fitAssessment {
+            var fDict: [String: Any] = ["overallFit": f.overallFit.rawValue]
+            if let v = f.easeChestCm { fDict["easeChestCm"] = v }
+            if let v = f.easeWaistCm { fDict["easeWaistCm"] = v }
+            if let v = f.easeHipCm { fDict["easeHipCm"] = v }
+            if let v = f.notes { fDict["notes"] = v }
+            out["fitAssessment"] = fDict
+        }
         return out
     }
 

@@ -16,19 +16,23 @@ struct ContentView: View {
         NavigationStack(path: $navigationPath) {
             OnboardingView(
                 heightCm: $coordinator.bodyCaptureViewModel.userHeightCm,
-                isFemale: $coordinator.bodyCaptureViewModel.isFemale,
-                onStartScan: { coordinator.requestCameraAndStartScan() },
+                gender: $coordinator.bodyCaptureViewModel.gender,
+                onStartScan: {
+                    coordinator.persistGender()
+                    coordinator.requestCameraAndStartScan()
+                },
                 onOpenHistory: { coordinator.openScanHistory() }
             )
             .onAppear {
                 coordinator.navigationPathBinding = $navigationPath
+                coordinator.migrateLegacyGenderIfNeeded()
             }
             .navigationDestination(for: FlowStep.self) { step in
                 switch step {
                 case .bodyCapture:
-                    BodyCaptureView(
+                    TwoAngleScanView(
                         viewModel: coordinator.bodyCaptureViewModel,
-                        onCaptured: { result in coordinator.bodyCaptured(result: result) }
+                        coordinator: coordinator
                     )
                 case .results:
                     if let result = coordinator.bodyResult {
