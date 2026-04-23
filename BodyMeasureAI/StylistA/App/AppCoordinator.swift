@@ -113,24 +113,25 @@ final class AppCoordinator: ObservableObject {
         UserDefaults.standard.set(gender.rawValue, forKey: "gender")
     }
 
-    /// Request camera permission first; only then navigate to body capture.
+    /// Request camera permission first; only then navigate to the guided
+    /// 3-angle body capture (front / side / back).
     func requestCameraAndStartScan() {
         bodyCaptureViewModel.resetLiveState()
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
-            appendToPath(.bodyCapture)
+            appendToPath(.multiAngleCapture)
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
                 Task { @MainActor in
                     if granted {
-                        self?.appendToPath(.bodyCapture)
+                        self?.appendToPath(.multiAngleCapture)
                     }
                     // If denied, user can open Settings; we don’t navigate
                 }
             }
         default:
             // Denied or restricted: still navigate so BodyCaptureView can show “Open Settings”
-            appendToPath(.bodyCapture)
+            appendToPath(.multiAngleCapture)
         }
     }
 

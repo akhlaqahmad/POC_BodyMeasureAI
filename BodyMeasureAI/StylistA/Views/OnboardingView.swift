@@ -143,7 +143,7 @@ struct OnboardingView: View {
                     onStartScan()
                 }) {
                     HStack {
-                        Text("Start Scan")
+                        Text("Start Guided Scan")
                             .font(SFont.label(15))
                             .tracking(1)
                         Spacer()

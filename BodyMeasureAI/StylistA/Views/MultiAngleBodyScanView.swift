@@ -60,7 +60,7 @@ struct MultiAngleBodyScanView: View {
     }
 
     private var phaseLabel: String {
-        "3-ANGLE SCAN · \(currentStepTitle.uppercased())"
+        "GUIDED SCAN · \(currentStepTitle.uppercased())"
     }
 
     var body: some View {

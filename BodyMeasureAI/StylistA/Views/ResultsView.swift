@@ -139,21 +139,6 @@ struct ResultsView: View {
 
                     // Actions
                     VStack(spacing: SSpacing.sm) {
-                        Button(action: onStartMultiAngleScan) {
-                            HStack {
-                                Text("3-Angle Scan (beta)")
-                                    .font(f(13))
-                                    .tracking(0.5)
-                                Spacer()
-                                Image(systemName: "person.3.sequence")
-                                    .font(Font.system(size: 14, weight: .medium))
-                            }
-                            .foregroundStyle(Color("sPrimary"))
-                            .padding(SSpacing.md)
-                            .background(Color("sSurfaceElevated"))
-                            .clipShape(RoundedRectangle(cornerRadius: SRadius.md))
-                        }
-
                         Button(action: onContinueToGarment) {
                             HStack {
                                 Text("Analyse Garment")
