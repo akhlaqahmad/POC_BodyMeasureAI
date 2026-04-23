@@ -59,33 +59,17 @@ struct MultiAngleBodyScanView: View {
         }
     }
 
+    private var phaseLabel: String {
+        "3-ANGLE SCAN · \(currentStepTitle.uppercased())"
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
-            BodyCaptureView(viewModel: viewModel) { result in
-                handleCapture(result)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("3-ANGLE BODY SCAN")
-                    .font(SFont.label(11))
-                    .tracking(3)
-                    .foregroundStyle(Color("sTertiary"))
-                Text(currentStepTitle)
-                    .font(SFont.body(14))
-                    .foregroundStyle(Color("sPrimary"))
-                Text(currentStepInstruction)
-                    .font(SFont.body(12))
-                    .foregroundStyle(Color("sSecondary"))
-            }
-            .padding(SSpacing.md)
-            .padding(.top, 56)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                LinearGradient(
-                    colors: [Color("sBackground").opacity(0.9), .clear],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+            BodyCaptureView(
+                viewModel: viewModel,
+                onCaptured: { result in handleCapture(result) },
+                phaseLabel: phaseLabel,
+                phaseSubtitle: currentStepInstruction
             )
         }
         .navigationBarBackButtonHidden(true)
@@ -95,8 +79,12 @@ struct MultiAngleBodyScanView: View {
                     coordinator.popLast()
                 }
                 .font(SFont.label(13))
+                .foregroundStyle(.white)
             }
         }
+        .toolbarBackground(.black.opacity(0.5), for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .onAppear {
             // If we already have a front-view result from the standard scan,
             // treat that as step 1 and only ask the user for side + back.

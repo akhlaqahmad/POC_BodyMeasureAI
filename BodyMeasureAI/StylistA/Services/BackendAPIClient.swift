@@ -75,15 +75,14 @@ enum BackendAPIClient {
             }
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .custom { dec in
-                let s = try dec.singleValueContainer().decode(String.self)
+                let container = try dec.singleValueContainer()
+                let s = try container.decode(String.self)
                 let iso = ISO8601DateFormatter()
                 iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
                 if let d = iso.date(from: s) { return d }
                 iso.formatOptions = [.withInternetDateTime]
                 if let d = iso.date(from: s) { return d }
-                throw DecodingError.dataCorruptedError(
-                    in: dec, debugDescription: "Invalid ISO-8601 date: \(s)"
-                )
+                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid ISO-8601 date: \(s)")
             }
             let wrapper = try decoder.decode(ScanHistoryResponse.self, from: data)
             AppLog.network.info("← 200 history (\(durationMs)ms) items=\(wrapper.sessions.count)")
@@ -146,3 +145,4 @@ enum BackendAPIClient {
         }
     }
 }
+

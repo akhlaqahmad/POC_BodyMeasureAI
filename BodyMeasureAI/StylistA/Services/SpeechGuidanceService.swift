@@ -11,8 +11,9 @@ import Foundation
 
 /// Thin wrapper around AVSpeechSynthesizer for scan guidance prompts.
 /// Thread-safe for main-thread callers; the synthesizer handles its own queue.
+@Observable
 @MainActor
-final class SpeechGuidanceService: ObservableObject {
+final class SpeechGuidanceService {
 
     /// Named prompts keep call sites readable and make throttling behave per
     /// logical step rather than per utterance string.

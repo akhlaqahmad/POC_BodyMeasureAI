@@ -10,6 +10,7 @@
 
 import Foundation
 import Security
+import os
 
 enum DeviceIdentity {
 

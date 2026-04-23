@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UIKit
+import os
 
 struct FinalScanResultView: View {
     let session: ScanSessionModel

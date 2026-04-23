@@ -7,6 +7,8 @@
 //
 
 import SwiftUI
+import Combine
+import os
 
 @MainActor
 final class ScanHistoryViewModel: ObservableObject {

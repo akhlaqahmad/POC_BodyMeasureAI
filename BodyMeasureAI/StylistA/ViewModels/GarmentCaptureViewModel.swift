@@ -9,6 +9,7 @@ import Combine
 import Foundation
 import SwiftUI
 import UIKit
+import os
 
 @MainActor
 final class GarmentCaptureViewModel: ObservableObject {

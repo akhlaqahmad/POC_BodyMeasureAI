@@ -10,6 +10,7 @@ import Combine
 import Foundation
 import SwiftUI
 import Vision
+import os
 
 @MainActor
 final class BodyCaptureViewModel: NSObject, ObservableObject {

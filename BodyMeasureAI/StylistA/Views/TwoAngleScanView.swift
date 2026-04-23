@@ -27,16 +27,15 @@ struct TwoAngleScanView: View {
         ZStack {
             switch step {
             case .capturingFront, .capturingSide:
-                BodyCaptureView(viewModel: viewModel) { result in
-                    handleCapture(result)
-                }
-                .overlay(alignment: .top) {
-                    stepBanner
-                }
+                BodyCaptureView(
+                    viewModel: viewModel,
+                    onCaptured: { result in handleCapture(result) },
+                    phaseLabel: phaseLabel
+                )
             case .transitionToSide:
                 TransitionInstructionView(
                     title: "Turn 90° to your side",
-                    body: "Stand straight with your side facing the camera. Keep arms slightly away from your body so the outline is visible.",
+                    message: "Stand straight with your side facing the camera. Keep arms slightly away from your body so the outline is visible.",
                     continueTitle: "I'm ready",
                     onContinue: {
                         viewModel.resetLiveState()
@@ -50,33 +49,21 @@ struct TwoAngleScanView: View {
             ToolbarItem(placement: .topBarLeading) {
                 Button("Cancel") { coordinator.popLast() }
                     .font(SFont.label(13))
+                    .foregroundStyle(.white)
             }
         }
+        .toolbarBackground(.black.opacity(0.5), for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .onAppear { viewModel.resetLiveState() }
     }
 
-    private var stepBanner: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("BODY SCAN")
-                .font(SFont.label(11))
-                .tracking(3)
-                .foregroundStyle(.white.opacity(0.6))
-            Text(step == .capturingFront
-                 ? "Step 1 of 2 · Front view"
-                 : "Step 2 of 2 · Side view")
-                .font(SFont.body(14))
-                .foregroundStyle(.white)
+    private var phaseLabel: String {
+        switch step {
+        case .capturingFront: return "BODY SCAN · STEP 1 OF 2 · FRONT"
+        case .capturingSide:  return "BODY SCAN · STEP 2 OF 2 · SIDE"
+        case .transitionToSide: return "BODY SCAN · STEP 2 OF 2"
         }
-        .padding(.horizontal, SSpacing.md)
-        .padding(.top, 56)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: [.black.opacity(0.55), .clear],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
     }
 
     private func handleCapture(_ result: BodyScanResult) {
@@ -108,7 +95,7 @@ struct TwoAngleScanView: View {
 /// surface so the device can cool down and the user can reorient.
 struct TransitionInstructionView: View {
     let title: String
-    let body: String
+    let message: String
     let continueTitle: String
     let onContinue: () -> Void
 
@@ -120,7 +107,7 @@ struct TransitionInstructionView: View {
                 Text(title)
                     .font(SFont.display(34, weight: .light))
                     .foregroundStyle(Color("sPrimary"))
-                Text(body)
+                Text(message)
                     .font(SFont.body(15))
                     .foregroundStyle(Color("sSecondary"))
                 Spacer()

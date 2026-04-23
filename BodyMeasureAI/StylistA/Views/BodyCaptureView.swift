@@ -12,8 +12,15 @@ import Vision
 struct BodyCaptureView: View {
     @ObservedObject var viewModel: BodyCaptureViewModel
     var onCaptured: (BodyScanResult) -> Void
+    /// Optional step-context label shown in place of the default "BODY SCAN"
+    /// eyebrow (e.g. "BODY SCAN · STEP 1 OF 2 · FRONT"). Keep it short.
+    var phaseLabel: String? = nil
+    /// Optional extra line shown below the eyebrow and above the dynamic
+    /// distance/framing instruction — used by multi-angle flows to tell the
+    /// user what pose to strike (e.g. "Turn 90° to the side").
+    var phaseSubtitle: String? = nil
 
-    @StateObject private var speech = SpeechGuidanceService()
+    @State private var speech = SpeechGuidanceService()
 
     var body: some View {
         ZStack {
@@ -38,28 +45,40 @@ struct BodyCaptureView: View {
                     .id(count)
             }
 
-            // Top gradient + instruction
+            // Top gradient + instruction. Sits BELOW the nav-bar safe area so
+            // the Cancel toolbar button (in parent views) never overlaps it.
             VStack(alignment: .leading, spacing: SSpacing.xs) {
-                HStack {
+                HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("BODY SCAN")
+                        Text(phaseLabel ?? "BODY SCAN")
                             .font(SFont.label(11))
                             .tracking(3)
-                            .foregroundStyle(.white.opacity(0.6))
+                            .foregroundStyle(.white.opacity(0.75))
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let phaseSubtitle {
+                            Text(phaseSubtitle)
+                                .font(SFont.body(13))
+                                .foregroundStyle(.white.opacity(0.9))
+                                .lineLimit(2)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                         Text(topInstructionText)
                             .font(SFont.body(14))
                             .foregroundStyle(.white)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
                             .animation(.easeInOut(duration: 0.3),
                                        value: topInstructionText)
                     }
-                    Spacer()
+                    Spacer(minLength: SSpacing.md)
                     if viewModel.currentObservation != nil {
                         Text("\(Int(viewModel.currentConfidence * 100))%")
                             .font(SFont.mono(12))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
-                            .background(.white.opacity(0.15))
+                            .background(.black.opacity(0.55))
                             .clipShape(Capsule())
                     }
                     Button(action: { viewModel.flipCamera() }) {
@@ -67,16 +86,15 @@ struct BodyCaptureView: View {
                             .font(.system(size: 16, weight: .medium))
                             .foregroundStyle(.white)
                             .frame(width: 36, height: 36)
-                            .background(.white.opacity(0.15))
+                            .background(.black.opacity(0.55))
                             .clipShape(Circle())
                     }
                     .accessibilityLabel("Flip camera")
                 }
                 .padding(SSpacing.md)
-                .padding(.top, 60) // extra space from very top so text isn't flush against camera notch
                 .background(
                     LinearGradient(
-                        colors: [.black.opacity(0.6), .clear],
+                        colors: [.black.opacity(0.7), .black.opacity(0.3), .clear],
                         startPoint: .top,
                         endPoint: .bottom))
 
@@ -96,7 +114,6 @@ struct BodyCaptureView: View {
 
                 Spacer()
             }
-            .ignoresSafeArea()
 
             // Bottom capture area
             VStack {
