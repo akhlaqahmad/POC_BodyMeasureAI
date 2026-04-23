@@ -192,10 +192,18 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     /// Capture button tapped: run normalizer + classification, publish result.
     func capture() {
         // Only allow capture when UI says we can capture (green button).
-        guard canCapture, let observation = currentObservation else { return }
+        guard canCapture, let observation = currentObservation else {
+            AppLog.capture.error(
+                "capture() no-op: canCapture=\(self.canCapture, privacy: .public) hasObservation=\(self.currentObservation != nil, privacy: .public)"
+            )
+            return
+        }
 
         let normalizer = KeypointNormalizer(userHeightCm: userHeightCm, gender: gender)
         guard let model = normalizer.normalize(observation, overallConfidence: currentConfidence) else {
+            AppLog.capture.error(
+                "capture() no-op: normalizer.normalize returned nil — required joints may be missing for this angle"
+            )
             return
         }
 
@@ -288,6 +296,10 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
             self.capture()
             if let result = self.capturedResult {
                 onCapture(result)
+            } else {
+                AppLog.capture.error(
+                    "auto-capture: countdown done but capture() produced no result — flow will not advance"
+                )
             }
             self.autoCaptureTask = nil
         }

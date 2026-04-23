@@ -104,7 +104,6 @@ final class SpeechGuidanceService {
             )
             try session.setActive(true, options: [])
             isConfigured = true
-            AppLog.capture.info("audio session: .playback/.spokenAudio active")
         } catch {
             AppLog.capture.error("audio session setup failed: \(error.localizedDescription, privacy: .public)")
         }

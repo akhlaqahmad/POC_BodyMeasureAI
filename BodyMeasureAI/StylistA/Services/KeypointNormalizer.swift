@@ -170,57 +170,80 @@ final class KeypointNormalizer {
     // MARK: - Scale factor (cm per normalized unit)
 
     /// Computes scale factor: real-world cm per normalized-distance-unit.
-    /// Math: We know the user's height in cm. In the image, the distance from head (nose)
-    /// to ankle (midpoint of ankles) in normalized coordinates gives us a "normalized height".
-    /// Scale factor = userHeightCm / normalizedHeadToAnkleDistance, so that
-    /// (normalized distance) × scaleFactor = distance in cm.
-    /// Uses ankles when possible, otherwise falls back to a single ankle or knees.
+    ///
+    /// Primary anchor is nose→ankle (best-covered vertical span). For back
+    /// views the nose isn't detected, so we fall back to mid-shoulder→ankle
+    /// and scale by the typical shoulder-to-floor ratio of body height
+    /// (~0.83). Further fallbacks go through single ankle and then knees.
+    ///
+    /// `userHeightCm / fullHeightEstimate` → 1 normalized unit == scaleFactor cm.
     private func computeScaleFactor(_ observation: VNHumanBodyPoseObservation) -> Double? {
         let nose = point(for: .nose, in: observation)
+        let leftShoulder = point(for: .leftShoulder, in: observation)
+        let rightShoulder = point(for: .rightShoulder, in: observation)
         let leftAnkle = point(for: .leftAnkle, in: observation)
         let rightAnkle = point(for: .rightAnkle, in: observation)
         let leftKnee = point(for: .leftKnee, in: observation)
         let rightKnee = point(for: .rightKnee, in: observation)
 
-        guard let n = nose else { return nil }
+        // Top anchor: prefer nose; fall back to shoulder midpoint (scaled to
+        // a full-height equivalent so downstream math is unchanged).
+        let shoulderMid: (x: Double, y: Double)? = {
+            guard let ls = leftShoulder, let rs = rightShoulder else { return nil }
+            return ((ls.x + rs.x) / 2, (ls.y + rs.y) / 2)
+        }()
+
+        // Returns (topPoint, fullHeightFraction): fraction of body height the
+        // top point represents (1.0 for nose, ~0.83 for shoulder mid).
+        // Drawn from typical adult proportions (top of head ~1.0, shoulders
+        // ~0.83, navel ~0.60).
+        let topAnchor: ((x: Double, y: Double), Double)? = {
+            if let n = nose { return (n, 1.0) }
+            if let sm = shoulderMid { return (sm, 0.83) }
+            return nil
+        }()
+
+        guard let (top, topFraction) = topAnchor else { return nil }
 
         // Prefer ankle midpoint (most accurate full-height estimate).
         if let la = leftAnkle, let ra = rightAnkle {
             let ankleMidX = (la.x + ra.x) / 2
             let ankleMidY = (la.y + ra.y) / 2
-            let dx = ankleMidX - n.x
-            let dy = ankleMidY - n.y
+            let dx = ankleMidX - top.x
+            let dy = ankleMidY - top.y
             let dist = sqrt(dx * dx + dy * dy)
             guard dist > 0.001 else { return nil }
-            return userHeightCm / dist
+            // Normalize dist to "full body height equivalent" then divide into userHeightCm.
+            return userHeightCm / (dist / topFraction)
         }
 
         // Fallback: single ankle if only one is visible.
         if let la = leftAnkle {
-            let dx = la.x - n.x
-            let dy = la.y - n.y
+            let dx = la.x - top.x
+            let dy = la.y - top.y
             let dist = sqrt(dx * dx + dy * dy)
             guard dist > 0.001 else { return nil }
-            return userHeightCm / dist
+            return userHeightCm / (dist / topFraction)
         }
         if let ra = rightAnkle {
-            let dx = ra.x - n.x
-            let dy = ra.y - n.y
+            let dx = ra.x - top.x
+            let dy = ra.y - top.y
             let dist = sqrt(dx * dx + dy * dy)
             guard dist > 0.001 else { return nil }
-            return userHeightCm / dist
+            return userHeightCm / (dist / topFraction)
         }
 
-        // Last fallback: use knees. Nose-to-knee is ~65% of full height on average.
+        // Last fallback: knees. Nose-to-knee ≈ 0.65 × full height;
+        // shoulder-mid-to-knee ≈ 0.48. Ratio = topFraction - 0.35 covers both.
         if let lk = leftKnee, let rk = rightKnee {
             let kneeMidX = (lk.x + rk.x) / 2
             let kneeMidY = (lk.y + rk.y) / 2
-            let dx = kneeMidX - n.x
-            let dy = kneeMidY - n.y
+            let dx = kneeMidX - top.x
+            let dy = kneeMidY - top.y
             let dist = sqrt(dx * dx + dy * dy)
             guard dist > 0.001 else { return nil }
-            // Compensate: nose-to-knee ≈ 0.65 × full height.
-            return userHeightCm / (dist / 0.65)
+            let kneeFraction = max(0.4, topFraction - 0.35)
+            return userHeightCm / (dist / kneeFraction)
         }
 
         return nil
@@ -285,23 +308,48 @@ final class KeypointNormalizer {
         return m2 * 0.78
     }
 
-    /// V1: Torso height (cm). Top of head (nose) to widest hip point (hip midpoint).
-    /// Perspective correction applied for 2–2.5 m capture.
+    /// V1: Torso height (cm). Nose→hip-midpoint when the face is visible
+    /// (front/side scans); shoulder-midpoint→hip-midpoint when it isn't
+    /// (back scans). The shoulder-based definition is the anatomically
+    /// correct torso height — we only use the nose anchor on front/side
+    /// to preserve prior calibration.
     private func extractV1TorsoHeight(
         _ observation: VNHumanBodyPoseObservation,
         scaleFactor: Double
     ) -> Double? {
         let nose = point(for: .nose, in: observation)
+        let ls = point(for: .leftShoulder, in: observation)
+        let rs = point(for: .rightShoulder, in: observation)
         let lh = point(for: .leftHip, in: observation)
         let rh = point(for: .rightHip, in: observation)
-        guard let n = nose, let l = lh, let r = rh else { return nil }
+        guard let l = lh, let r = rh else { return nil }
         let hipMidY = (l.y + r.y) / 2
         let hipMidX = (l.x + r.x) / 2
-        let dy = hipMidY - n.y
-        let dx = hipMidX - n.x
+
+        let topX: Double
+        let topY: Double
+        let correction: Double
+
+        if let n = nose {
+            topX = n.x
+            topY = n.y
+            correction = Self.perspectiveCorrectionVertical
+        } else if let leftShoulder = ls, let rightShoulder = rs {
+            topX = (leftShoulder.x + rightShoulder.x) / 2
+            topY = (leftShoulder.y + rightShoulder.y) / 2
+            // Shoulder→hip is ~0.82x nose→hip on an adult frame; scale up so
+            // the reported torso height stays comparable to the nose-anchored
+            // path the classifier is calibrated against.
+            correction = Self.perspectiveCorrectionVertical / 0.82
+        } else {
+            return nil
+        }
+
+        let dy = hipMidY - topY
+        let dx = hipMidX - topX
         let normalizedTorso = sqrt(dx * dx + dy * dy)
         let cm = normalizedTorso * scaleFactor
-        return cm * Self.perspectiveCorrectionVertical
+        return cm * correction
     }
 
     /// V2: Leg length (cm). Hip midpoint to ankle midpoint (floor level).
