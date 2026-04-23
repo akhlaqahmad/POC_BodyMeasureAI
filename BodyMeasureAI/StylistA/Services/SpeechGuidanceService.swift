@@ -8,6 +8,7 @@
 
 import AVFoundation
 import Foundation
+import os
 
 /// Thin wrapper around AVSpeechSynthesizer for scan guidance prompts.
 /// Thread-safe for main-thread callers; the synthesizer handles its own queue.
@@ -56,12 +57,18 @@ final class SpeechGuidanceService {
     /// Speak the prompt if we haven't spoken it recently. `force` bypasses
     /// dedup (used for countdown numbers, which must always play).
     func speak(_ prompt: Prompt, force: Bool = false) {
+        // Re-assert the audio session each time in case it was deactivated
+        // (e.g. interrupted by a call, or the AVCaptureSession changed state).
+        configureAudioSessionIfNeeded()
+
         let now = Date()
         if !force, let last = lastSpoken[prompt],
            now.timeIntervalSince(last) < dedupWindow {
             return
         }
         lastSpoken[prompt] = now
+
+        AppLog.capture.debug("speech: \(prompt.rawValue, privacy: .public)")
 
         let utterance = AVSpeechUtterance(string: prompt.text)
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.95
@@ -81,24 +88,25 @@ final class SpeechGuidanceService {
         lastSpoken.removeAll()
     }
 
-    /// TTS needs to coexist with an active video session. `.playAndRecord`
-    /// with `.defaultToSpeaker` routes synthesised speech through the speaker
-    /// even while the mic-capable session is live. `.mixWithOthers` lets
-    /// background audio (e.g. a user's music) continue.
+    /// TTS only — we don't record audio (AVCaptureSession is video-only), so
+    /// `.playback` is correct. `.duckOthers` briefly lowers any background
+    /// music while a guidance prompt plays. `.playback` also plays through
+    /// the speaker regardless of the ringer/silent switch, which is what
+    /// users expect from guided scan audio.
     private func configureAudioSessionIfNeeded() {
         guard !isConfigured else { return }
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(
-                .playAndRecord,
-                mode: .default,
-                options: [.defaultToSpeaker, .mixWithOthers, .allowBluetooth]
+                .playback,
+                mode: .spokenAudio,
+                options: [.duckOthers]
             )
-            try session.setActive(true, options: [.notifyOthersOnDeactivation])
+            try session.setActive(true, options: [])
             isConfigured = true
+            AppLog.capture.info("audio session: .playback/.spokenAudio active")
         } catch {
-            // Non-fatal: speech will still try to play through the default
-            // route. Log but do not throw.
+            AppLog.capture.error("audio session setup failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

@@ -8,6 +8,7 @@
 import SwiftUI
 import AVFoundation
 import Vision
+import os
 
 struct BodyCaptureView: View {
     @ObservedObject var viewModel: BodyCaptureViewModel
@@ -239,29 +240,38 @@ struct BodyCaptureView: View {
             }
         }
         .onAppear {
+            AppLog.capture.info("BodyCaptureView.onAppear phase=\(self.phaseLabel ?? "body scan", privacy: .public)")
             speech.resetDedup()
             viewModel.requestCameraAndConfigure()
         }
         .onDisappear {
+            AppLog.capture.info("BodyCaptureView.onDisappear phase=\(self.phaseLabel ?? "body scan", privacy: .public)")
             viewModel.stopSession()
             viewModel.cancelAutoCapture()
             speech.stopAll()
         }
         .onChange(of: viewModel.isBodyDetected) { _, detected in
+            AppLog.capture.debug("isBodyDetected=\(detected, privacy: .public)")
             if detected { speech.speak(.bodyDetected) }
         }
         .onChange(of: viewModel.bodyNotInFrameMessage) { _, msg in
-            if msg != nil { speech.speak(.stepBack) }
+            if let msg {
+                AppLog.capture.debug("bodyNotInFrame: \(msg, privacy: .public)")
+                speech.speak(.stepBack)
+            }
         }
         .onChange(of: viewModel.isReadyForAutoCapture) { _, ready in
+            AppLog.capture.info("isReadyForAutoCapture=\(ready, privacy: .public)")
             if ready {
                 speech.speak(.holdStill)
                 speech.speak(.countdown3, force: true)
                 viewModel.startAutoCaptureCountdown { result in
+                    AppLog.capture.info("auto-capture: countdown finished → onCaptured")
                     speech.speak(.captured, force: true)
                     onCaptured(result)
                 }
             } else {
+                AppLog.capture.debug("auto-capture: ready → false, cancelling countdown")
                 viewModel.cancelAutoCapture()
             }
         }

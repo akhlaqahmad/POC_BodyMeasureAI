@@ -96,6 +96,9 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
             Thread.sleep(forTimeInterval: 0.1)
             if !self.session.isRunning {
                 self.session.startRunning()
+                AppLog.capture.info("capture session started — preset=hd1920x1080")
+            } else {
+                AppLog.capture.debug("capture session already running — skipping startRunning")
             }
         }
     }
@@ -178,7 +181,11 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
 
     func stopSession() {
         sessionQueue.async { [weak self] in
-            self?.session.stopRunning()
+            guard let self = self else { return }
+            if self.session.isRunning {
+                self.session.stopRunning()
+                AppLog.capture.info("capture session stopped")
+            }
         }
     }
 
@@ -235,6 +242,7 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     /// Reset all live-detection state so starting a new scan does not show
     /// previous frame's skeleton/confidence.
     func resetLiveState() {
+        AppLog.capture.info("resetLiveState: clearing pose/stability state for next capture")
         currentObservation = nil
         isBodyDetected = false
         currentConfidence = 0
@@ -253,16 +261,24 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     /// Begin a 3-second countdown that calls `capture()` at zero. Safe to call
     /// repeatedly — no-op if a countdown is already running.
     func startAutoCaptureCountdown(onCapture: @escaping (BodyScanResult) -> Void) {
-        guard autoCaptureTask == nil, canCapture else { return }
+        guard autoCaptureTask == nil, canCapture else {
+            AppLog.capture.debug("startAutoCaptureCountdown: skipped (taskRunning=\(self.autoCaptureTask != nil, privacy: .public) canCapture=\(self.canCapture, privacy: .public))")
+            return
+        }
+        AppLog.capture.info("startAutoCaptureCountdown: 3…2…1")
         autoCaptureCountdown = 3
         autoCaptureTask = Task { [weak self] in
             guard let self = self else { return }
             for n in [3, 2, 1] {
                 self.autoCaptureCountdown = n
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
-                if Task.isCancelled { return }
+                if Task.isCancelled {
+                    AppLog.capture.debug("auto-capture: task cancelled mid-countdown")
+                    return
+                }
                 // Abort if the scan state decayed during the tick.
                 if !self.canCapture || !self.isStable {
+                    AppLog.capture.debug("auto-capture: aborted — canCapture=\(self.canCapture, privacy: .public) isStable=\(self.isStable, privacy: .public)")
                     self.autoCaptureCountdown = nil
                     self.autoCaptureTask = nil
                     return
