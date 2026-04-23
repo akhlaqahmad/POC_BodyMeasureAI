@@ -21,6 +21,10 @@ struct ContentView: View {
                     coordinator.persistGender()
                     coordinator.requestCameraAndStartScan()
                 },
+                onStartGarmentScan: {
+                    coordinator.persistGender()
+                    coordinator.startGarmentScan()
+                },
                 onOpenHistory: { coordinator.openScanHistory() }
             )
             .onAppear {
@@ -55,13 +59,15 @@ struct ContentView: View {
                         coordinator: coordinator
                     )
                 case .garmentResult:
-                    if let body = coordinator.bodyResult, let garment = coordinator.garmentResult {
+                    if let garment = coordinator.garmentResult {
                         GarmentResultView(
                             image: coordinator.garmentCaptureViewModel.selectedImage,
                             result: garment,
                             onAddToWardrobe: { },
                             onDone: { coordinator.popLast() },
-                            onCompleteScan: { coordinator.completeScan() }
+                            onCompleteScan: coordinator.bodyResult != nil
+                                ? { coordinator.completeScan() }
+                                : nil
                         )
                     }
                 case .finalResult:

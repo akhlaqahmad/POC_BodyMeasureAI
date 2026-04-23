@@ -22,14 +22,28 @@ struct GarmentCaptureView: View {
             VStack(spacing: 0) {
 
                 // Header
-                VStack(alignment: .leading, spacing: SSpacing.xs) {
-                    Text("GARMENT SCAN")
-                        .font(SFont.label(11))
-                        .tracking(3)
-                        .foregroundStyle(Color("sTertiary"))
-                    Text("Add a piece")
-                        .font(SFont.display(34, weight: .light))
-                        .foregroundStyle(Color("sPrimary"))
+                HStack(alignment: .top, spacing: SSpacing.md) {
+                    Button(action: { coordinator.popLast() }) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Color("sPrimary"))
+                            .frame(width: 36, height: 36)
+                            .background(Color("sSurface"))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+
+                    VStack(alignment: .leading, spacing: SSpacing.xs) {
+                        Text("GARMENT SCAN")
+                            .font(SFont.label(11))
+                            .tracking(3)
+                            .foregroundStyle(Color("sTertiary"))
+                        Text("Add a piece")
+                            .font(SFont.display(34, weight: .light))
+                            .foregroundStyle(Color("sPrimary"))
+                    }
+
+                    Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, SSpacing.lg)

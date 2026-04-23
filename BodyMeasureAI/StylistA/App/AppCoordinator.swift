@@ -155,6 +155,13 @@ final class AppCoordinator: ObservableObject {
         appendToPath(.garmentCapture)
     }
 
+    /// Garment-first entry from onboarding. Clears any stale garment state so
+    /// the capture screen opens fresh without a prior preview.
+    func startGarmentScan() {
+        garmentCaptureViewModel.clearSelection()
+        appendToPath(.garmentCapture)
+    }
+
     func garmentAnalysed(result: GarmentTagModel) {
         garmentResult = result
         appendToPath(.garmentResult)
@@ -234,6 +241,31 @@ final class AppCoordinator: ObservableObject {
         setUploadStatus(.uploading)
         Task { [weak self] in
             let result = await BackendAPIClient.upload(bodyOnly: body)
+            await MainActor.run {
+                self?.setUploadStatus(Self.mapStatus(result))
+            }
+        }
+    }
+
+    /// Upload a garment-only analysis (the user scanned a garment without a
+    /// body scan). Idempotent while the garment-only session persists — reset
+    /// on `newScan()`.
+    func uploadGarmentOnlyIfNeeded(_ garment: GarmentTagModel) {
+        let key = "garment-only"
+        guard !uploadedSessionIds.contains(key) else {
+            AppLog.upload.debug("skip duplicate garment-only upload")
+            return
+        }
+        uploadedSessionIds.insert(key)
+        setUploadStatus(.uploading)
+        let height = userHeightCm
+        let g = gender
+        Task { [weak self] in
+            let result = await BackendAPIClient.upload(
+                garmentOnly: garment,
+                heightCm: height,
+                gender: g
+            )
             await MainActor.run {
                 self?.setUploadStatus(Self.mapStatus(result))
             }

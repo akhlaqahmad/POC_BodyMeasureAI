@@ -15,6 +15,7 @@ struct GarmentResultView: View {
     let onDone: () -> Void
     var onCompleteScan: (() -> Void)? = nil
 
+    @EnvironmentObject private var coordinator: AppCoordinator
     @State private var rawJSONExpanded = false
 
     var body: some View {
@@ -202,6 +203,15 @@ struct GarmentResultView: View {
             }
         }
         .navigationBarHidden(true)
+        .onAppear {
+            // When this screen is reached via the garment-first flow (no body
+            // scan), the full-session upload on `FinalScanResultView` will
+            // never fire because there's no body to build a session from.
+            // Upload the garment on appear so it lands in the DB.
+            if coordinator.bodyResult == nil {
+                coordinator.uploadGarmentOnlyIfNeeded(result)
+            }
+        }
     }
 
     private func exportJSON() {

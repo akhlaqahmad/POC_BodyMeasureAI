@@ -46,6 +46,30 @@ enum BackendAPIClient {
         return await postJSON(dict: result.exportJSON, label: "bodyOnly")
     }
 
+    /// Upload a garment-only analysis (no body scan). The server accepts a
+    /// payload without `bodyMeasurements`/`bodyClassification` and still
+    /// creates a scan_sessions row for the garment to reference.
+    static func upload(
+        garmentOnly garment: GarmentTagModel,
+        heightCm: Double,
+        gender: Gender,
+        scanTimestamp: Date = Date()
+    ) async -> Result<BackendUploadResult, BackendUploadError> {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let payload: [String: Any] = [
+            "sessionId": UUID().uuidString,
+            "scanTimestamp": iso.string(from: scanTimestamp),
+            "userInputs": [
+                "heightCm": heightCm,
+                "gender": gender.rawValue
+            ] as [String: Any],
+            "garmentAnalysis": garment.exportJSON
+        ]
+        AppLog.upload.info("upload(garmentOnly) timestamp=\(scanTimestamp.timeIntervalSince1970, privacy: .public)")
+        return await postJSON(dict: payload, label: "garmentOnly")
+    }
+
     /// Fetch this device's scan history (body measurements + garment detail).
     static func fetchHistory(limit: Int = 50) async -> Result<[ScanHistoryItem], BackendUploadError> {
         var components = URLComponents(
