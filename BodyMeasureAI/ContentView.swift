@@ -19,7 +19,7 @@ struct ContentView: View {
                 gender: $coordinator.bodyCaptureViewModel.gender,
                 onStartScan: {
                     coordinator.persistGender()
-                    coordinator.requestCameraAndStartScan()
+                    coordinator.beginScanFlow()
                 },
                 onStartGarmentScan: {
                     coordinator.persistGender()
@@ -33,6 +33,8 @@ struct ContentView: View {
             }
             .navigationDestination(for: FlowStep.self) { step in
                 switch step {
+                case .instructions:
+                    InstructionsFlowView(coordinator: coordinator)
                 case .bodyCapture:
                     TwoAngleScanView(
                         viewModel: coordinator.bodyCaptureViewModel,

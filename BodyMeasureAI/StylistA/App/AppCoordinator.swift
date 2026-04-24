@@ -12,6 +12,7 @@ import os
 
 /// Linear flow steps (no tab bar).
 enum FlowStep: Hashable {
+    case instructions
     case bodyCapture
     case multiAngleCapture
     case results
@@ -33,6 +34,11 @@ final class AppCoordinator: ObservableObject {
 
     @Published var bodyResult: BodyScanResult?
     @Published var garmentResult: GarmentTagModel?
+
+    /// How the user intends to take the photos. Chosen during the pre-scan
+    /// instruction flow (Step 2). Consumed by the capture screen to pick
+    /// between tap-to-capture and voice-guided self-capture.
+    @Published var scanMode: ScanMode = .bySelf
 
     /// Cached history items from the last fetch so detail pushes don't need
     /// a separate request. Populated by ScanHistoryView when it loads.
@@ -133,6 +139,48 @@ final class AppCoordinator: ObservableObject {
             // Denied or restricted: still navigate so BodyCaptureView can show “Open Settings”
             appendToPath(.multiAngleCapture)
         }
+    }
+
+    // MARK: - Pre-scan instructions flow
+
+    private static let hasSeenInstructionsKey = "hasSeenScanInstructions"
+
+    /// True if the user has completed the instruction walkthrough at least
+    /// once. Repeat users can skip straight to the capture screen.
+    var hasSeenInstructions: Bool {
+        UserDefaults.standard.bool(forKey: Self.hasSeenInstructionsKey)
+    }
+
+    /// Called when the user finishes the walkthrough's final "Ready" screen.
+    func markInstructionsSeen() {
+        UserDefaults.standard.set(true, forKey: Self.hasSeenInstructionsKey)
+    }
+
+    /// Entry point from OnboardingView's "Scan Body" button. First-time users
+    /// see the full 10-screen walkthrough; repeat users jump straight to the
+    /// camera with permission handling.
+    func beginScanFlow() {
+        if hasSeenInstructions {
+            requestCameraAndStartScan()
+        } else {
+            appendToPath(.instructions)
+        }
+    }
+
+    /// Forced entry from a "Review instructions" link. Always pushes the
+    /// walkthrough regardless of the seen-flag.
+    func openInstructions() {
+        appendToPath(.instructions)
+    }
+
+    /// Called by InstructionsFlowView's final CTA. Records completion and
+    /// continues into the normal camera permission + scan flow.
+    func instructionsAcknowledgedStartScan() {
+        markInstructionsSeen()
+        // Replace the instructions step on the stack with the capture step so
+        // the user can't "back" into the walkthrough mid-scan.
+        removeLastFromPath()
+        requestCameraAndStartScan()
     }
 
     func startBodyScan() {
