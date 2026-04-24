@@ -7,10 +7,14 @@
 
 import SwiftUI
 import UIKit
+import os
 
 struct FinalScanResultView: View {
     let session: ScanSessionModel
     let onNewScan: () -> Void
+    /// Optional coordinator hook so the view can trigger and observe uploads.
+    /// Kept optional to avoid breaking existing call sites / previews.
+    @EnvironmentObject private var coordinator: AppCoordinator
 
     @State private var appeared = false
     @State private var jsonExpanded = false
@@ -24,10 +28,14 @@ struct FinalScanResultView: View {
 
                     // Header
                     VStack(alignment: .leading, spacing: SSpacing.xs) {
-                        Text("STYLISTA")
-                            .font(SFont.label(11))
-                            .tracking(6)
-                            .foregroundStyle(Color("sTertiary"))
+                        HStack {
+                            Text("STYLISTA")
+                                .font(SFont.label(11))
+                                .tracking(6)
+                                .foregroundStyle(Color("sTertiary"))
+                            Spacer()
+                            SyncStatusBadge(status: coordinator.uploadStatus)
+                        }
                         Text("Your Style\nProfile")
                             .font(SFont.display(40, weight: .light))
                             .foregroundStyle(Color("sPrimary"))
@@ -238,7 +246,11 @@ struct FinalScanResultView: View {
             }
         }
         .navigationBarHidden(true)
-        .onAppear { appeared = true }
+        .onAppear {
+            appeared = true
+            AppLog.lifecycle.info("FinalScanResultView.onAppear sessionId=\(session.sessionId, privacy: .public)")
+            coordinator.uploadCompletedSession(session)
+        }
     }
 
     private struct FinalSectionHeader: View {

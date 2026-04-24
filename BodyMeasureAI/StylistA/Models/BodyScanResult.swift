@@ -7,11 +7,13 @@
 
 import Foundation
 
-/// Multi-angle capture bundle (front/side/back). Stored for export and UI display.
+/// Multi-angle capture bundle. `back` is optional because the default flow
+/// now captures front + side only; the legacy 3-angle flow still fills all
+/// three.
 struct MultiAngleMeasurements {
     let front: BodyProportionModel
     let side: BodyProportionModel
-    let back: BodyProportionModel
+    let back: BodyProportionModel?
 }
 
 /// Result published to the UI after a successful capture: measurements + classification message.
@@ -47,16 +49,20 @@ struct BodyScanResult {
             out["garmentAnalysis"] = garment.exportJSON
         }
         if let angles = multiAngleMeasurements {
-            out["multiAngleBodyMeasurements"] = [
+            var angleMeasurements: [String: Any] = [
                 "front": bodyMeasurementsExport(for: angles.front),
                 "side": bodyMeasurementsExport(for: angles.side),
-                "back": bodyMeasurementsExport(for: angles.back)
             ]
-            out["multiAngleCaptureConfidence"] = [
+            var angleConfidences: [String: Any] = [
                 "front": angles.front.captureConfidence,
                 "side": angles.side.captureConfidence,
-                "back": angles.back.captureConfidence
             ]
+            if let back = angles.back {
+                angleMeasurements["back"] = bodyMeasurementsExport(for: back)
+                angleConfidences["back"] = back.captureConfidence
+            }
+            out["multiAngleBodyMeasurements"] = angleMeasurements
+            out["multiAngleCaptureConfidence"] = angleConfidences
         }
         return out
     }

@@ -16,18 +16,27 @@ struct ContentView: View {
         NavigationStack(path: $navigationPath) {
             OnboardingView(
                 heightCm: $coordinator.bodyCaptureViewModel.userHeightCm,
-                isFemale: $coordinator.bodyCaptureViewModel.isFemale,
-                onStartScan: { coordinator.requestCameraAndStartScan() }
+                gender: $coordinator.bodyCaptureViewModel.gender,
+                onStartScan: {
+                    coordinator.persistGender()
+                    coordinator.requestCameraAndStartScan()
+                },
+                onStartGarmentScan: {
+                    coordinator.persistGender()
+                    coordinator.startGarmentScan()
+                },
+                onOpenHistory: { coordinator.openScanHistory() }
             )
             .onAppear {
                 coordinator.navigationPathBinding = $navigationPath
+                coordinator.migrateLegacyGenderIfNeeded()
             }
             .navigationDestination(for: FlowStep.self) { step in
                 switch step {
                 case .bodyCapture:
-                    BodyCaptureView(
+                    TwoAngleScanView(
                         viewModel: coordinator.bodyCaptureViewModel,
-                        onCaptured: { result in coordinator.bodyCaptured(result: result) }
+                        coordinator: coordinator
                     )
                 case .results:
                     if let result = coordinator.bodyResult {
@@ -50,13 +59,15 @@ struct ContentView: View {
                         coordinator: coordinator
                     )
                 case .garmentResult:
-                    if let body = coordinator.bodyResult, let garment = coordinator.garmentResult {
+                    if let garment = coordinator.garmentResult {
                         GarmentResultView(
                             image: coordinator.garmentCaptureViewModel.selectedImage,
                             result: garment,
                             onAddToWardrobe: { },
                             onDone: { coordinator.popLast() },
-                            onCompleteScan: { coordinator.completeScan() }
+                            onCompleteScan: coordinator.bodyResult != nil
+                                ? { coordinator.completeScan() }
+                                : nil
                         )
                     }
                 case .finalResult:
@@ -73,9 +84,22 @@ struct ContentView: View {
                             onDismiss: { coordinator.popLast() }
                         )
                     }
+                case .scanHistory:
+                    ScanHistoryView(
+                        onOpenDetail: { item in coordinator.openScanHistoryDetail(item) },
+                        onClose: { coordinator.popLast() }
+                    )
+                case .scanHistoryDetail(let id):
+                    if let item = coordinator.historyItems.first(where: { $0.id == id }) {
+                        ScanHistoryDetailView(
+                            item: item,
+                            onBack: { coordinator.popLast() }
+                        )
+                    }
                 }
             }
         }
+        .environmentObject(coordinator)
     }
 }
 

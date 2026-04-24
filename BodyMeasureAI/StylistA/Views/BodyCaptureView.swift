@@ -8,10 +8,20 @@
 import SwiftUI
 import AVFoundation
 import Vision
+import os
 
 struct BodyCaptureView: View {
     @ObservedObject var viewModel: BodyCaptureViewModel
     var onCaptured: (BodyScanResult) -> Void
+    /// Optional step-context label shown in place of the default "BODY SCAN"
+    /// eyebrow (e.g. "BODY SCAN · STEP 1 OF 2 · FRONT"). Keep it short.
+    var phaseLabel: String? = nil
+    /// Optional extra line shown below the eyebrow and above the dynamic
+    /// distance/framing instruction — used by multi-angle flows to tell the
+    /// user what pose to strike (e.g. "Turn 90° to the side").
+    var phaseSubtitle: String? = nil
+
+    @State private var speech = SpeechGuidanceService()
 
     var body: some View {
         ZStack {
@@ -26,36 +36,66 @@ struct BodyCaptureView: View {
             SkeletonOverlayView(observation: viewModel.currentObservation)
                 .ignoresSafeArea()
 
-            // Top gradient + instruction
+            // Auto-capture countdown (overrides capture UI when active)
+            if let count = viewModel.autoCaptureCountdown {
+                Text("\(count)")
+                    .font(.system(size: 144, weight: .thin, design: .rounded))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.5), radius: 8)
+                    .transition(.scale.combined(with: .opacity))
+                    .id(count)
+            }
+
+            // Top gradient + instruction. Sits BELOW the nav-bar safe area so
+            // the Cancel toolbar button (in parent views) never overlaps it.
             VStack(alignment: .leading, spacing: SSpacing.xs) {
-                HStack {
+                HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("BODY SCAN")
+                        Text(phaseLabel ?? "BODY SCAN")
                             .font(SFont.label(11))
                             .tracking(3)
-                            .foregroundStyle(.white.opacity(0.6))
+                            .foregroundStyle(.white.opacity(0.75))
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let phaseSubtitle {
+                            Text(phaseSubtitle)
+                                .font(SFont.body(13))
+                                .foregroundStyle(.white.opacity(0.9))
+                                .lineLimit(2)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                         Text(topInstructionText)
                             .font(SFont.body(14))
                             .foregroundStyle(.white)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
                             .animation(.easeInOut(duration: 0.3),
                                        value: topInstructionText)
                     }
-                    Spacer()
+                    Spacer(minLength: SSpacing.md)
                     if viewModel.currentObservation != nil {
                         Text("\(Int(viewModel.currentConfidence * 100))%")
                             .font(SFont.mono(12))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
-                            .background(.white.opacity(0.15))
+                            .background(.black.opacity(0.55))
                             .clipShape(Capsule())
                     }
+                    Button(action: { viewModel.flipCamera() }) {
+                        Image(systemName: "camera.rotate")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.white)
+                            .frame(width: 36, height: 36)
+                            .background(.black.opacity(0.55))
+                            .clipShape(Circle())
+                    }
+                    .accessibilityLabel("Flip camera")
                 }
                 .padding(SSpacing.md)
-                .padding(.top, 60) // extra space from very top so text isn't flush against camera notch
                 .background(
                     LinearGradient(
-                        colors: [.black.opacity(0.6), .clear],
+                        colors: [.black.opacity(0.7), .black.opacity(0.3), .clear],
                         startPoint: .top,
                         endPoint: .bottom))
 
@@ -75,7 +115,6 @@ struct BodyCaptureView: View {
 
                 Spacer()
             }
-            .ignoresSafeArea()
 
             // Bottom capture area
             VStack {
@@ -200,8 +239,50 @@ struct BodyCaptureView: View {
                 }
             }
         }
-        .onAppear { viewModel.requestCameraAndConfigure() }
-        .onDisappear { viewModel.stopSession() }
+        .onAppear {
+            AppLog.capture.info("BodyCaptureView.onAppear phase=\(self.phaseLabel ?? "body scan", privacy: .public)")
+            speech.resetDedup()
+            viewModel.requestCameraAndConfigure()
+        }
+        .onDisappear {
+            AppLog.capture.info("BodyCaptureView.onDisappear phase=\(self.phaseLabel ?? "body scan", privacy: .public)")
+            viewModel.stopSession()
+            viewModel.cancelAutoCapture()
+            speech.stopAll()
+        }
+        .onChange(of: viewModel.isBodyDetected) { _, detected in
+            AppLog.capture.debug("isBodyDetected=\(detected, privacy: .public)")
+            if detected { speech.speak(.bodyDetected) }
+        }
+        .onChange(of: viewModel.bodyNotInFrameMessage) { _, msg in
+            if let msg {
+                AppLog.capture.debug("bodyNotInFrame: \(msg, privacy: .public)")
+                speech.speak(.stepBack)
+            }
+        }
+        .onChange(of: viewModel.isReadyForAutoCapture) { _, ready in
+            AppLog.capture.info("isReadyForAutoCapture=\(ready, privacy: .public)")
+            if ready {
+                speech.speak(.holdStill)
+                speech.speak(.countdown3, force: true)
+                viewModel.startAutoCaptureCountdown { result in
+                    AppLog.capture.info("auto-capture: countdown finished → onCaptured")
+                    speech.speak(.captured, force: true)
+                    onCaptured(result)
+                }
+            } else {
+                AppLog.capture.debug("auto-capture: ready → false, cancelling countdown")
+                viewModel.cancelAutoCapture()
+            }
+        }
+        .onChange(of: viewModel.autoCaptureCountdown) { _, newValue in
+            switch newValue {
+            case 2: speech.speak(.countdown2, force: true)
+            case 1: speech.speak(.countdown1, force: true)
+            default: break
+            }
+        }
+        .keepScreenAwake()
     }
 
     private var topInstructionText: String {

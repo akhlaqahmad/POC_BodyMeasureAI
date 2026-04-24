@@ -9,8 +9,10 @@ import SwiftUI
 
 struct OnboardingView: View {
     @Binding var heightCm: Double
-    @Binding var isFemale: Bool
+    @Binding var gender: Gender
     var onStartScan: () -> Void
+    var onStartGarmentScan: () -> Void
+    var onOpenHistory: () -> Void
 
     @State private var heightText: String = ""
     @State private var appeared = false
@@ -21,13 +23,27 @@ struct OnboardingView: View {
 
             VStack(spacing: 0) {
 
-                // Wordmark top left
+                // Wordmark top left + history entry top right
                 HStack {
                     Text("STYLISTA")
                         .font(SFont.label(13))
                         .tracking(6)
                         .foregroundStyle(Color("sPrimary"))
                     Spacer()
+                    Button(action: onOpenHistory) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "clock.arrow.circlepath")
+                                .font(.system(size: 12, weight: .medium))
+                            Text("HISTORY")
+                                .font(SFont.label(11))
+                                .tracking(2)
+                        }
+                        .foregroundStyle(Color("sSecondary"))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color("sSurface"))
+                        .clipShape(Capsule())
+                    }
                 }
                 .padding(.horizontal, SSpacing.lg)
                 .padding(.top, 56)
@@ -45,7 +61,7 @@ struct OnboardingView: View {
                         .animation(.easeOut(duration: 0.6).delay(0.1),
                                    value: appeared)
 
-                    Text("Scan once. Dress perfectly.")
+                    Text("Scan your body or a garment\nanytime. Dress perfectly.")
                         .font(SFont.body(16))
                         .foregroundStyle(Color("sSecondary"))
                         .opacity(appeared ? 1 : 0)
@@ -99,14 +115,10 @@ struct OnboardingView: View {
                             .tracking(2)
                             .foregroundStyle(Color("sTertiary"))
 
-                        Picker("", selection: Binding<String>(
-                            get: { isFemale ? "female" : "male" },
-                            set: { newValue in
-                                isFemale = (newValue == "female")
+                        Picker("", selection: $gender) {
+                            ForEach(Gender.allCases, id: \.self) { g in
+                                Text(g.displayName).tag(g)
                             }
-                        )) {
-                            Text("Male").tag("male")
-                            Text("Female").tag("female")
                         }
                         .pickerStyle(.segmented)
                         .tint(.black)
@@ -121,37 +133,91 @@ struct OnboardingView: View {
                 .offset(y: appeared ? 0 : 30)
                 .animation(.easeOut(duration: 0.6).delay(0.4), value: appeared)
 
-                Spacer().frame(height: SSpacing.xl)
+                Spacer().frame(height: SSpacing.lg)
 
-                // CTA
-                Button(action: {
-                    if let v = Double(heightText), v > 0 { heightCm = v }
-                    UIApplication.shared.sendAction(
-                        #selector(UIResponder.resignFirstResponder),
-                        to: nil, from: nil, for: nil)
-                    onStartScan()
-                }) {
-                    HStack {
-                        Text("Start Scan")
-                            .font(SFont.label(15))
-                            .tracking(1)
-                        Spacer()
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 14, weight: .medium))
+                // Primary / secondary scan actions. Either path can be taken first.
+                VStack(spacing: SSpacing.sm) {
+                    scanActionTile(
+                        title: "Scan Body",
+                        subtitle: "Full-body measurements",
+                        systemImage: "figure.stand",
+                        style: .primary
+                    ) {
+                        if let v = Double(heightText), v > 0 { heightCm = v }
+                        dismissKeyboard()
+                        onStartScan()
                     }
-                    .foregroundStyle(Color("sBackground"))
-                    .padding(.horizontal, SSpacing.lg)
-                    .padding(.vertical, SSpacing.md)
-                    .background(Color("sAccent"))
-                    .clipShape(RoundedRectangle(cornerRadius: SRadius.md))
+
+                    scanActionTile(
+                        title: "Scan Garment",
+                        subtitle: "Identify a piece you own",
+                        systemImage: "tshirt",
+                        style: .secondary
+                    ) {
+                        dismissKeyboard()
+                        onStartGarmentScan()
+                    }
                 }
                 .padding(.horizontal, SSpacing.lg)
                 .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 20)
                 .animation(.easeOut(duration: 0.5).delay(0.55), value: appeared)
 
                 Spacer().frame(height: SSpacing.xxl)
             }
         }
         .onAppear { appeared = true }
+    }
+
+    private enum TileStyle { case primary, secondary }
+
+    @ViewBuilder
+    private func scanActionTile(
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        style: TileStyle,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: SSpacing.md) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 20, weight: .light))
+                    .frame(width: 28)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(SFont.label(15))
+                        .tracking(1)
+                    Text(subtitle)
+                        .font(SFont.body(12))
+                        .opacity(0.75)
+                }
+
+                Spacer()
+
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 14, weight: .medium))
+            }
+            .foregroundStyle(style == .primary ? Color("sBackground") : Color("sPrimary"))
+            .padding(.horizontal, SSpacing.lg)
+            .padding(.vertical, SSpacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: SRadius.md)
+                    .fill(style == .primary ? Color("sAccent") : Color("sSurface"))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: SRadius.md)
+                    .stroke(Color("sBorder"), lineWidth: style == .secondary ? 1 : 0)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil, from: nil, for: nil)
     }
 }

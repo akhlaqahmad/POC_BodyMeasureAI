@@ -6,9 +6,18 @@
 	<array>
 		<dict/>
 	</array>
-	<key>NSCameraUsageDescription</key>
-	<string>We need camera access to capture your body pose for measurements.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>We need photo library access to choose garment images for analysis.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>localhost</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 </dict>
 </plist>

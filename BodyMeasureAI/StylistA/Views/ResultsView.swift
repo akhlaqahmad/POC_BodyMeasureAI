@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UIKit
+import os
 
 struct ResultsView: View {
     let result: BodyScanResult
@@ -14,6 +15,8 @@ struct ResultsView: View {
     let onContinueToGarment: () -> Void
     let onValidationMode: () -> Void
     let onStartMultiAngleScan: () -> Void
+
+    @EnvironmentObject private var coordinator: AppCoordinator
 
     @State private var appeared = false
     @State private var selectedAngleIndex: Int = 0
@@ -41,10 +44,14 @@ struct ResultsView: View {
 
                     // Header
                     VStack(alignment: .leading, spacing: SSpacing.xs) {
-                        Text("SCAN RESULTS")
-                            .font(f(11))
-                            .tracking(3)
-                            .foregroundStyle(Color("sTertiary"))
+                        HStack {
+                            Text("SCAN RESULTS")
+                                .font(f(11))
+                                .tracking(3)
+                                .foregroundStyle(Color("sTertiary"))
+                            Spacer()
+                            SyncStatusBadge(status: coordinator.uploadStatus)
+                        }
                         Text("Body Profile")
                             .font(fDisplay(34, weight: .light))
                             .foregroundStyle(Color("sPrimary"))
@@ -132,21 +139,6 @@ struct ResultsView: View {
 
                     // Actions
                     VStack(spacing: SSpacing.sm) {
-                        Button(action: onStartMultiAngleScan) {
-                            HStack {
-                                Text("3-Angle Scan (beta)")
-                                    .font(f(13))
-                                    .tracking(0.5)
-                                Spacer()
-                                Image(systemName: "person.3.sequence")
-                                    .font(Font.system(size: 14, weight: .medium))
-                            }
-                            .foregroundStyle(Color("sPrimary"))
-                            .padding(SSpacing.md)
-                            .background(Color("sSurfaceElevated"))
-                            .clipShape(RoundedRectangle(cornerRadius: SRadius.md))
-                        }
-
                         Button(action: onContinueToGarment) {
                             HStack {
                                 Text("Analyse Garment")
@@ -250,7 +242,11 @@ struct ResultsView: View {
             }
         }
         .navigationBarHidden(true)
-        .onAppear { appeared = true }
+        .onAppear {
+            appeared = true
+            AppLog.lifecycle.info("ResultsView.onAppear")
+            coordinator.uploadBodyOnlyIfNeeded(result)
+        }
         .sheet(isPresented: $showJSONSheet) {
             NavigationStack {
                 ZStack {
@@ -310,7 +306,7 @@ private extension ResultsView {
         guard let angles = result.multiAngleMeasurements else { return result.measurements }
         switch selectedAngleIndex {
         case 1: return angles.side
-        case 2: return angles.back
+        case 2: return angles.back ?? angles.front
         default: return angles.front
         }
     }

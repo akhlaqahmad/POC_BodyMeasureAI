@@ -15,6 +15,7 @@ struct GarmentResultView: View {
     let onDone: () -> Void
     var onCompleteScan: (() -> Void)? = nil
 
+    @EnvironmentObject private var coordinator: AppCoordinator
     @State private var rawJSONExpanded = false
 
     var body: some View {
@@ -83,6 +84,49 @@ struct GarmentResultView: View {
                     Text("Confidence: \(Int(result.classificationConfidence * 100))%")
                         .font(SFont.body(13))
                         .foregroundStyle(Color("sTertiary"))
+
+                    if let m = result.measurements {
+                        VStack(alignment: .leading, spacing: SSpacing.xs) {
+                            HStack(spacing: 6) {
+                                Text("MEASUREMENTS")
+                                    .font(SFont.label(11))
+                                    .tracking(3)
+                                    .foregroundStyle(Color("sTertiary"))
+                                Text("BETA")
+                                    .font(SFont.label(9))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color("sSurfaceElevated"))
+                                    .clipShape(Capsule())
+                                    .foregroundStyle(Color("sTertiary"))
+                            }
+                            HStack(spacing: SSpacing.sm) {
+                                if let v = m.chestWidthCm {
+                                    TagPill(label: "Chest width",
+                                            value: String(format: "%.0f cm", v))
+                                }
+                                if let v = m.garmentLengthCm {
+                                    TagPill(label: "Length",
+                                            value: String(format: "%.0f cm", v))
+                                }
+                            }
+                            if let fit = result.fitAssessment {
+                                HStack(spacing: SSpacing.sm) {
+                                    TagPill(label: "Fit",
+                                            value: fit.overallFit.rawValue.capitalized)
+                                    if let e = fit.easeChestCm {
+                                        TagPill(label: "Chest ease",
+                                                value: String(format: "%+.1f cm", e))
+                                    }
+                                }
+                                if let notes = fit.notes {
+                                    Text(notes)
+                                        .font(SFont.body(12))
+                                        .foregroundStyle(Color("sSecondary"))
+                                }
+                            }
+                        }
+                    }
 
                     // Actions
                     VStack(spacing: SSpacing.sm) {
@@ -159,6 +203,15 @@ struct GarmentResultView: View {
             }
         }
         .navigationBarHidden(true)
+        .onAppear {
+            // When this screen is reached via the garment-first flow (no body
+            // scan), the full-session upload on `FinalScanResultView` will
+            // never fire because there's no body to build a session from.
+            // Upload the garment on appear so it lands in the DB.
+            if coordinator.bodyResult == nil {
+                coordinator.uploadGarmentOnlyIfNeeded(result)
+            }
+        }
     }
 
     private func exportJSON() {
