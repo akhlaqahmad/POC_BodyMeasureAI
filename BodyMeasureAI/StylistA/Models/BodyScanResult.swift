@@ -39,6 +39,11 @@ struct BodyScanResult {
     var capturedMeasurements: [CapturedMeasurement] = []
     /// Per-scan extraction telemetry: parser version, coverage, warnings.
     var extractionReport: ExtractionReport? = nil
+    /// Reference photos + silhouette masks already streamed to Vercel Blob.
+    /// Empty when consent is off or asset upload failed; the backend session
+    /// row still gets written normally. Each entry contributes one row to
+    /// the `scan_assets` table.
+    var uploadedAssets: [UploadedScanAsset] = []
 
     /// JSON structure for export (matches spec). Includes garmentAnalysis when present.
     var exportJSON: [String: Any] {
@@ -96,6 +101,9 @@ struct BodyScanResult {
         }
         if let report = extractionReport {
             out["extractionReport"] = report.exportJSON
+        }
+        if !uploadedAssets.isEmpty {
+            out["assets"] = uploadedAssets.map { $0.exportJSON }
         }
         return out
     }

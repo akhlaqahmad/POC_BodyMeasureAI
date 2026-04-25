@@ -29,4 +29,11 @@ enum BackendConfig {
     static var sessionsEndpoint: URL {
         baseURL.appendingPathComponent("api/sessions")
     }
+
+    /// Scan-asset upload endpoint — matches `POST /api/blob/scan-assets`.
+    /// Streams one HEIC frame or PNG mask at a time as multipart/form-data
+    /// and returns the resulting Vercel Blob URL.
+    static var scanAssetsEndpoint: URL {
+        baseURL.appendingPathComponent("api/blob/scan-assets")
+    }
 }

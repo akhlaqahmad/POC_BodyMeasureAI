@@ -57,6 +57,12 @@ final class AppCoordinator: ObservableObject {
     /// double-upload on `onAppear`.
     private var uploadedSessionIds: Set<String> = []
 
+    /// Drives the reference-photo consent sheet presented on the very first
+    /// scan attempt. Set true by `beginScanFlow()` when the user hasn't been
+    /// prompted yet; cleared after the sheet records a decision and the flow
+    /// resumes.
+    @Published var showReferencePhotoConsent: Bool = false
+
     init() {
         self.bodyCaptureViewModel = BodyCaptureViewModel()
         self.garmentCaptureViewModel = GarmentCaptureViewModel()
@@ -190,12 +196,30 @@ final class AppCoordinator: ObservableObject {
     /// Entry point from OnboardingView's "Scan Body" button. First-time users
     /// see the full 10-screen walkthrough; repeat users jump straight to the
     /// camera with permission handling.
+    ///
+    /// Also gates on the reference-photo consent prompt: if the user has
+    /// never been asked, present the sheet first and resume the scan flow
+    /// from `referencePhotoConsentDecided` once they choose. Body imagery is
+    /// sensitive — making the choice an explicit step beats burying it in
+    /// settings.
     func beginScanFlow() {
+        if ScanAssetSettings.needsConsentPrompt {
+            showReferencePhotoConsent = true
+            return
+        }
         if hasSeenInstructions {
             requestCameraAndStartScan()
         } else {
             appendToPath(.instructions)
         }
+    }
+
+    /// Called by ContentView's consent sheet after the user chooses. Dismiss
+    /// the sheet and continue into the normal flow. Idempotent: re-entry
+    /// after the sheet hits this path with `needsConsentPrompt == false`.
+    func referencePhotoConsentDecided() {
+        showReferencePhotoConsent = false
+        beginScanFlow()
     }
 
     /// Forced entry from a "Review instructions" link. Always pushes the
@@ -303,8 +327,26 @@ final class AppCoordinator: ObservableObject {
         }
         uploadedSessionIds.insert(session.sessionId)
         setUploadStatus(.uploading)
+        let pendingAssets = drainPendingScanAssets()
         Task { [weak self] in
-            let result = await BackendAPIClient.upload(session: session)
+            // Stream reference photos + masks first so the session JSON below
+            // can carry their final URLs in the `assets` array. Best-effort —
+            // if uploads fail, the session still flows with empty assets.
+            let uploaded = await BackendAPIClient.uploadScanAssets(
+                pendingAssets,
+                uploadId: session.sessionId,
+            )
+            let enriched = ScanSessionModel(
+                sessionId: session.sessionId,
+                sessionTimestamp: session.sessionTimestamp,
+                userInputs: session.userInputs,
+                bodyMeasurements: session.bodyMeasurements,
+                bodyClassification: session.bodyClassification,
+                garmentAnalysis: session.garmentAnalysis,
+                captureConfidence: session.captureConfidence,
+                uploadedAssets: session.uploadedAssets + uploaded,
+            )
+            let result = await BackendAPIClient.upload(session: enriched)
             await MainActor.run {
                 self?.setUploadStatus(Self.mapStatus(result))
             }
@@ -320,12 +362,28 @@ final class AppCoordinator: ObservableObject {
         }
         uploadedSessionIds.insert(key)
         setUploadStatus(.uploading)
+        let pendingAssets = drainPendingScanAssets()
         Task { [weak self] in
-            let result = await BackendAPIClient.upload(bodyOnly: body)
+            let uploaded = await BackendAPIClient.uploadScanAssets(
+                pendingAssets,
+                uploadId: key,
+            )
+            var enriched = body
+            enriched.uploadedAssets = body.uploadedAssets + uploaded
+            let result = await BackendAPIClient.upload(bodyOnly: enriched)
             await MainActor.run {
                 self?.setUploadStatus(Self.mapStatus(result))
             }
         }
+    }
+
+    /// Pulls the encoded HEIC frames + mask PNGs off the capture view model.
+    /// Run on the main actor (where the view model lives) so we don't race
+    /// the next scan's accumulation. Returns an empty array when the user
+    /// hasn't opted in to reference-photo retention.
+    private func drainPendingScanAssets() -> [PendingScanAsset] {
+        guard ScanAssetSettings.consentGranted else { return [] }
+        return bodyCaptureViewModel.takePendingAssets()
     }
 
     /// Upload a garment-only analysis (the user scanned a garment without a

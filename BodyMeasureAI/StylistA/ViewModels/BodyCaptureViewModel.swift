@@ -37,6 +37,11 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     /// Same key scheme as `maskByAngle`. Stored so the slicer has each
     /// angle's keypoints for its per-mask shoulder/hip Y anchors.
     private var observationByAngle: [String: VNHumanBodyPoseObservation] = [:]
+    /// Reference photos + mask PNGs encoded at capture time, keyed by angle.
+    /// Populated only when `ScanAssetSettings.consentGranted` is true. Bytes
+    /// live here until the upload pipeline drains them — `prepareForNewScan`
+    /// clears the maps so a prior flow's images don't leak into the next.
+    private(set) var pendingAssetsByAngle: [String: [PendingScanAsset]] = [:]
     @Published var cameraDenied = false
     @Published private(set) var isStable: Bool = false
     /// Shown when body is detected but ankles are out of frame (full body must be visible).
@@ -365,6 +370,48 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
         if let newMask = pipelineResult.mask {
             self.maskByAngle[angle] = newMask
             self.observationByAngle[angle] = observation
+
+            // Encode RGB + mask for upload only when the user has opted in.
+            // Failures are non-fatal: the measurement payload still flows,
+            // and a warning gets logged for debugging.
+            if ScanAssetSettings.consentGranted,
+               let assetAngle = ScanAssetAngle(rawValue: angle) {
+                let assets = await Task.detached(priority: .utility) { () -> [PendingScanAsset] in
+                    var out: [PendingScanAsset] = []
+                    do {
+                        let rgb = try FrameEncoder.encodeHEIC(pixelBuffer: pixelBuffer)
+                        out.append(PendingScanAsset(
+                            angle: assetAngle,
+                            kind: .rgbFrame,
+                            data: rgb.data,
+                            contentType: rgb.contentType,
+                            sha256Hex: rgb.sha256Hex,
+                        ))
+                    } catch {
+                        AppLog.capture.error("FrameEncoder HEIC failed: \(String(describing: error), privacy: .public)")
+                    }
+                    do {
+                        let mask = try FrameEncoder.encodePNG(mask: newMask)
+                        out.append(PendingScanAsset(
+                            angle: assetAngle,
+                            kind: .silhouetteMask,
+                            data: mask.data,
+                            contentType: mask.contentType,
+                            sha256Hex: mask.sha256Hex,
+                        ))
+                    } catch {
+                        AppLog.capture.error("FrameEncoder PNG failed: \(String(describing: error), privacy: .public)")
+                    }
+                    return out
+                }.value
+                if !assets.isEmpty {
+                    self.pendingAssetsByAngle[angle] = assets
+                    let totalBytes = assets.reduce(0) { $0 + $1.bytes }
+                    AppLog.capture.info(
+                        "encoded \(assets.count, privacy: .public) asset(s) for angle=\(angle, privacy: .public) totalBytes=\(totalBytes, privacy: .public)"
+                    )
+                }
+            }
         }
 
         let report = ExtractionReport(
@@ -384,7 +431,18 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     func prepareForNewScan() {
         maskByAngle.removeAll()
         observationByAngle.removeAll()
+        pendingAssetsByAngle.removeAll()
         captureAngle = "front"
+    }
+
+    /// Drains the encoded reference photos accumulated so far in this scan.
+    /// Called by the upload coordinator after `capturedResult` is published —
+    /// returning by-value lets the upload pipeline release the bytes once
+    /// transmission completes without holding them on the view model.
+    func takePendingAssets() -> [PendingScanAsset] {
+        let all = pendingAssetsByAngle.values.flatMap { $0 }
+        pendingAssetsByAngle.removeAll()
+        return all
     }
 
     /// Clear result so user can "Scan Again".

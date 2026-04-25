@@ -16,6 +16,10 @@ struct ScanSessionModel {
     let bodyClassification: (positiveMessage: String, verticalType: String, isPetite: Bool)
     let garmentAnalysis: GarmentTagModel
     let captureConfidence: Double
+    /// Reference photos + silhouette masks already streamed to Vercel Blob.
+    /// Forwarded into the upload payload so the backend can write scan_assets
+    /// rows linked to this session. Empty when consent was off.
+    let uploadedAssets: [UploadedScanAsset]
 
     init(
         sessionId: String = UUID().uuidString,
@@ -24,7 +28,8 @@ struct ScanSessionModel {
         bodyMeasurements: BodyProportionModel,
         bodyClassification: (positiveMessage: String, verticalType: String, isPetite: Bool),
         garmentAnalysis: GarmentTagModel,
-        captureConfidence: Double
+        captureConfidence: Double,
+        uploadedAssets: [UploadedScanAsset] = []
     ) {
         self.sessionId = sessionId
         self.sessionTimestamp = sessionTimestamp
@@ -33,6 +38,7 @@ struct ScanSessionModel {
         self.bodyClassification = bodyClassification
         self.garmentAnalysis = garmentAnalysis
         self.captureConfidence = captureConfidence
+        self.uploadedAssets = uploadedAssets
     }
 
     /// Build from body scan result + garment result.
@@ -43,7 +49,8 @@ struct ScanSessionModel {
             bodyMeasurements: bodyResult.measurements,
             bodyClassification: (bodyResult.positiveMessage, bodyResult.verticalType, bodyResult.isPetite),
             garmentAnalysis: garmentResult,
-            captureConfidence: bodyResult.measurements.captureConfidence
+            captureConfidence: bodyResult.measurements.captureConfidence,
+            uploadedAssets: bodyResult.uploadedAssets
         )
     }
 
@@ -52,7 +59,7 @@ struct ScanSessionModel {
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let timestampString = iso.string(from: sessionTimestamp)
-        return [
+        var out: [String: Any] = [
             "sessionId": sessionId,
             "scanTimestamp": timestampString,
             "userInputs": [
@@ -63,7 +70,11 @@ struct ScanSessionModel {
             "bodyClassification": bodyClassificationExport,
             "garmentAnalysis": garmentAnalysis.exportJSON,
             "captureConfidence": captureConfidence
-        ] as [String: Any]
+        ]
+        if !uploadedAssets.isEmpty {
+            out["assets"] = uploadedAssets.map { $0.exportJSON }
+        }
+        return out
     }
 
     private var bodyMeasurementsExport: [String: Any] {

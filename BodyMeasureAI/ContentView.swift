@@ -107,6 +107,12 @@ struct ContentView: View {
             }
         }
         .environmentObject(coordinator)
+        .sheet(isPresented: $coordinator.showReferencePhotoConsent) {
+            ReferencePhotoConsentSheet { _ in
+                coordinator.referencePhotoConsentDecided()
+            }
+            .interactiveDismissDisabled(true)
+        }
     }
 }
 

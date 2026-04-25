@@ -46,6 +46,104 @@ enum BackendAPIClient {
         return await postJSON(dict: result.exportJSON, label: "bodyOnly")
     }
 
+    // MARK: - Scan assets (reference photos + silhouette masks)
+
+    /// Streams pending HEIC frames and PNG masks to /api/blob/scan-assets,
+    /// returning the URLs the caller can hand to /api/sessions in the
+    /// `assets` array. Best-effort: per-asset failures are logged but don't
+    /// block the rest of the batch — the caller may still upload the session
+    /// JSON with whatever URLs succeeded.
+    ///
+    /// Uploads sequentially. Three frames + three masks per scan is small
+    /// enough that the saved bandwidth from parallelism doesn't justify the
+    /// added complexity around partial-failure semantics.
+    static func uploadScanAssets(
+        _ pending: [PendingScanAsset],
+        uploadId: String
+    ) async -> [UploadedScanAsset] {
+        guard !pending.isEmpty else { return [] }
+        var uploaded: [UploadedScanAsset] = []
+        uploaded.reserveCapacity(pending.count)
+        for asset in pending {
+            switch await postScanAsset(asset, uploadId: uploadId) {
+            case .success(let result):
+                uploaded.append(result)
+            case .failure(let err):
+                AppLog.upload.error(
+                    "scan-asset upload failed angle=\(asset.angle.rawValue, privacy: .public) kind=\(asset.kind.rawValue, privacy: .public) error=\(String(describing: err), privacy: .public)"
+                )
+            }
+        }
+        return uploaded
+    }
+
+    private static func postScanAsset(
+        _ asset: PendingScanAsset,
+        uploadId: String
+    ) async -> Result<UploadedScanAsset, BackendUploadError> {
+        let endpoint = BackendConfig.scanAssetsEndpoint
+        let boundary = "----StylistAFormBoundary\(UUID().uuidString)"
+        let deviceId = DeviceIdentity.current()
+
+        var body = Data()
+        func appendField(_ name: String, _ value: String) {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(value)\r\n".data(using: .utf8)!)
+        }
+        appendField("angle", asset.angle.rawValue)
+        appendField("kind", asset.kind.rawValue)
+        appendField("sha256", asset.sha256Hex)
+        appendField("uploadId", uploadId)
+
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append(
+            "Content-Disposition: form-data; name=\"file\"; filename=\"\(asset.angle.rawValue)-\(asset.kind.rawValue)\"\r\n"
+                .data(using: .utf8)!,
+        )
+        body.append("Content-Type: \(asset.contentType)\r\n\r\n".data(using: .utf8)!)
+        body.append(asset.data)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+
+        var req = URLRequest(url: endpoint)
+        req.httpMethod = "POST"
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-Id")
+        req.httpBody = body
+        req.timeoutInterval = 30
+
+        AppLog.network.info(
+            "→ POST \(endpoint.absoluteString, privacy: .public) asset angle=\(asset.angle.rawValue, privacy: .public) kind=\(asset.kind.rawValue, privacy: .public) bytes=\(asset.bytes, privacy: .public)"
+        )
+        let start = CFAbsoluteTimeGetCurrent()
+
+        do {
+            let (respData, resp) = try await URLSession.shared.data(for: req)
+            let durationMs = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            guard let http = resp as? HTTPURLResponse else { return .failure(.invalidResponse) }
+            let bodyStr = String(data: respData, encoding: .utf8) ?? ""
+            guard (200...299).contains(http.statusCode) else {
+                AppLog.network.error("← \(http.statusCode) scan-asset (\(durationMs)ms) body=\(bodyStr.prefix(200), privacy: .public)")
+                return .failure(.httpStatus(http.statusCode, bodyStr))
+            }
+            guard let json = try? JSONSerialization.jsonObject(with: respData) as? [String: Any],
+                  let url = json["url"] as? String else {
+                return .failure(.invalidResponse)
+            }
+            AppLog.network.info("← \(http.statusCode) scan-asset (\(durationMs)ms) url=\(url, privacy: .public)")
+            return .success(UploadedScanAsset(
+                angle: asset.angle,
+                kind: asset.kind,
+                url: url,
+                contentType: asset.contentType,
+                bytes: asset.bytes,
+                sha256Hex: asset.sha256Hex,
+            ))
+        } catch {
+            return .failure(.transport(error))
+        }
+    }
+
     /// Upload a garment-only analysis (no body scan). The server accepts a
     /// payload without `bodyMeasurements`/`bodyClassification` and still
     /// creates a scan_sessions row for the garment to reference.
