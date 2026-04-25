@@ -39,6 +39,7 @@ struct TwoAngleScanView: View {
                     continueTitle: "I'm ready",
                     onContinue: {
                         viewModel.resetLiveState()
+                        viewModel.captureAngle = "side"
                         step = .capturingSide
                     }
                 )
@@ -55,7 +56,10 @@ struct TwoAngleScanView: View {
         .toolbarBackground(.black.opacity(0.5), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
-        .onAppear { viewModel.resetLiveState() }
+        .onAppear {
+            viewModel.resetLiveState()
+            viewModel.captureAngle = "front"
+        }
     }
 
     private var phaseLabel: String {
@@ -83,6 +87,11 @@ struct TwoAngleScanView: View {
                 side: result.measurements,
                 back: nil
             )
+            // Carry the side-capture's taxonomy values forward — that run had
+            // both front + side masks available, so its girths are real
+            // ellipses rather than the front-only depth-ratio fallback.
+            combined.capturedMeasurements = result.capturedMeasurements
+            combined.extractionReport = result.extractionReport
             coordinator.bodyCaptured(result: combined)
         case .transitionToSide:
             break

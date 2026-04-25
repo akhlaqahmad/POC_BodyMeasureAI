@@ -175,10 +175,12 @@ struct BodyCaptureView: View {
 
                     // Capture button — minimal ring
                     Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            viewModel.capture()
-                            if let result = viewModel.capturedResult {
-                                onCaptured(result)
+                        Task {
+                            await viewModel.capture()
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                if let result = viewModel.capturedResult {
+                                    onCaptured(result)
+                                }
                             }
                         }
                     }) {

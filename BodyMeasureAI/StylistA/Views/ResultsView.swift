@@ -137,6 +137,18 @@ struct ResultsView: View {
                     .animation(.easeOut(duration: 0.5).delay(0.3),
                                value: appeared)
 
+                    // Long-format taxonomy measurements (silhouette pipeline)
+                    if !result.capturedMeasurements.isEmpty {
+                        TaxonomyMeasurementsCard(
+                            measurements: result.capturedMeasurements,
+                            extractionReport: result.extractionReport,
+                        )
+                        .opacity(appeared ? 1 : 0)
+                        .offset(y: appeared ? 0 : 16)
+                        .animation(.easeOut(duration: 0.5).delay(0.35),
+                                   value: appeared)
+                    }
+
                     // Actions
                     VStack(spacing: SSpacing.sm) {
                         Button(action: onContinueToGarment) {
@@ -336,5 +348,117 @@ private struct MeasurementTile: View {
         .background(Color("sSurface"))
         .clipShape(RoundedRectangle(cornerRadius: SRadius.md))
         .softShadow()
+    }
+}
+
+/// Renders the long-format silhouette-pipeline measurements alongside the
+/// extraction report. Collapsed by default — opens to show every captured
+/// code with value + confidence.
+private struct TaxonomyMeasurementsCard: View {
+    let measurements: [CapturedMeasurement]
+    let extractionReport: ExtractionReport?
+
+    @State private var expanded: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SSpacing.sm) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("FULL TAXONOMY")
+                    .font(ResultsView.fontLabel(11))
+                    .tracking(3)
+                    .foregroundStyle(Color("sTertiary"))
+                Spacer()
+                Text("\(measurements.count) captured")
+                    .font(ResultsView.fontMono(12))
+                    .foregroundStyle(Color("sSecondary"))
+            }
+
+            if let report = extractionReport, !report.warnings.isEmpty {
+                ForEach(report.warnings, id: \.self) { w in
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.orange)
+                        Text(w)
+                            .font(ResultsView.fontMono(11))
+                            .foregroundStyle(Color("sSecondary"))
+                    }
+                }
+            }
+
+            DisclosureGroup(isExpanded: $expanded) {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(sortedMeasurements, id: \.code) { m in
+                        TaxonomyRow(measurement: m)
+                        Divider()
+                            .background(Color("sBorder"))
+                    }
+                }
+                .padding(.top, SSpacing.xs)
+            } label: {
+                Text(expanded ? "Hide details" : "Show all measurements")
+                    .font(ResultsView.fontLabel(13))
+                    .tracking(0.5)
+                    .foregroundStyle(Color("sPrimary"))
+            }
+
+            if let report = extractionReport, let segMs = report.segmentationMs {
+                Text("Segmentation \(segMs) ms · parser v\(report.parserVersion)")
+                    .font(ResultsView.fontMono(10))
+                    .foregroundStyle(Color("sTertiary"))
+            }
+        }
+        .padding(SSpacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color("sSurface"))
+        .clipShape(RoundedRectangle(cornerRadius: SRadius.lg))
+        .softShadow()
+    }
+
+    private var sortedMeasurements: [CapturedMeasurement] {
+        // Stable ordering: highest confidence first, then alphabetical by code.
+        measurements.sorted { lhs, rhs in
+            if lhs.confidence != rhs.confidence {
+                return lhs.confidence > rhs.confidence
+            }
+            return lhs.code < rhs.code
+        }
+    }
+}
+
+private struct TaxonomyRow: View {
+    let measurement: CapturedMeasurement
+
+    var body: some View {
+        HStack(alignment: .center, spacing: SSpacing.sm) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(measurement.code)
+                    .font(ResultsView.fontMono(12))
+                    .foregroundStyle(Color("sPrimary"))
+                Text("\(measurement.angle) · \(confidenceLabel)")
+                    .font(ResultsView.fontMono(10))
+                    .foregroundStyle(confidenceColor)
+            }
+            Spacer()
+            HStack(alignment: .lastTextBaseline, spacing: 2) {
+                Text(String(format: "%.1f", measurement.value))
+                    .font(ResultsView.fontMono(15))
+                    .foregroundStyle(Color("sPrimary"))
+                Text(measurement.unit)
+                    .font(ResultsView.fontBody(10))
+                    .foregroundStyle(Color("sTertiary"))
+            }
+        }
+        .padding(.vertical, SSpacing.xs)
+    }
+
+    private var confidenceLabel: String {
+        "\(Int(measurement.confidence * 100))%"
+    }
+
+    private var confidenceColor: Color {
+        if measurement.confidence >= 0.7 { return Color("sSuccess") }
+        if measurement.confidence >= 0.5 { return Color("sTertiary") }
+        return Color.orange
     }
 }

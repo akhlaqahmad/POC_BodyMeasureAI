@@ -57,6 +57,7 @@ struct MultiAngleBodyScanView: View {
                     onContinue: {
                         AppLog.lifecycle.info("3angle: user ready → capturingSide")
                         viewModel.resetLiveState()
+                        viewModel.captureAngle = "side"
                         step = .capturingSide
                     }
                 )
@@ -68,6 +69,7 @@ struct MultiAngleBodyScanView: View {
                     onContinue: {
                         AppLog.lifecycle.info("3angle: user ready → capturingBack")
                         viewModel.resetLiveState()
+                        viewModel.captureAngle = "back"
                         step = .capturingBack
                     }
                 )
@@ -96,9 +98,11 @@ struct MultiAngleBodyScanView: View {
                 if let existingFront = coordinator.bodyResult {
                     AppLog.lifecycle.info("3angle: existing front result found — skipping front capture")
                     frontResult = existingFront
+                    viewModel.captureAngle = "side"
                     step = .transitionToSide
                 } else {
                     AppLog.lifecycle.info("3angle: starting fresh at capturingFront")
+                    viewModel.captureAngle = "front"
                 }
             }
         }
@@ -161,6 +165,12 @@ struct MultiAngleBodyScanView: View {
                     side: side.measurements,
                     back: back.measurements
                 )
+                // Carry the back-capture's taxonomy values forward — that
+                // run had front + side masks available (back angle isn't
+                // used for measurement geometry today, but the slicer ran
+                // with the full mask set at that moment).
+                combined.capturedMeasurements = back.capturedMeasurements
+                combined.extractionReport = back.extractionReport
                 AppLog.lifecycle.info("3angle: 3-angle session complete — navigating to results")
                 coordinator.bodyCaptured(result: combined)
             } else {

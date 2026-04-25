@@ -1,0 +1,80 @@
+.
+├── AGENTS.md
+├── BodyMeasureAI
+│   ├── Assets.xcassets
+│   │   ├── AccentColor.colorset
+│   │   ├── AppIcon.appiconset
+│   │   ├── Contents.json
+│   │   ├── Instructions
+│   │   ├── sAccent.colorset
+│   │   ├── sBackground.colorset
+│   │   ├── sBorder.colorset
+│   │   ├── sError.colorset
+│   │   ├── sPrimary.colorset
+│   │   ├── sSecondary.colorset
+│   │   ├── sSuccess.colorset
+│   │   ├── sSurface.colorset
+│   │   ├── sSurfaceElevated.colorset
+│   │   ├── sTertiary.colorset
+│   │   └── splash.imageset
+│   ├── BodyMeasureAIApp.swift
+│   ├── ContentView.swift
+│   ├── Info.plist
+│   ├── LaunchScreen.storyboard
+│   ├── Shared
+│   └── StylistA
+│       ├── App
+│       ├── DesignSystem
+│       ├── Models
+│       ├── Services
+│       ├── ViewModels
+│       └── Views
+├── BodyMeasureAI.xcodeproj
+│   ├── project.pbxproj
+│   ├── project.xcworkspace
+│   │   ├── contents.xcworkspacedata
+│   │   ├── xcshareddata
+│   │   └── xcuserdata
+│   └── xcuserdata
+│       ├── akhlaqahmad.xcuserdatad
+│       └── cs-05.xcuserdatad
+├── BodyMeasureAITests
+│   └── BodyMeasureAITests.swift
+├── BodyMeasureAIUITests
+│   ├── BodyMeasureAIUITests.swift
+│   └── BodyMeasureAIUITestsLaunchTests.swift
+├── BodyMeasureAIWatch
+│   └── Assets.xcassets
+│       ├── AccentColor.colorset
+│       └── AppIcon.appiconset
+├── BodyMeasureAIWatch Watch App
+│   └── Assets.xcassets
+│       ├── AccentColor.colorset
+│       └── AppIcon.appiconset
+├── PLAN.md
+├── README.md
+├── TestSamples
+│   ├── person_0
+│   │   ├── front.jpg
+│   │   └── side.jpg
+│   ├── person_1
+│   │   ├── front.jpg
+│   │   └── side.jpg
+│   ├── person_2
+│   │   ├── front.jpg
+│   │   └── side.jpg
+│   ├── person_3
+│   │   ├── front.jpg
+│   │   └── side.jpg
+│   ├── person_4
+│   │   ├── front.jpg
+│   │   └── side.jpg
+│   ├── person_5
+│   │   ├── front.jpg
+│   │   └── side.jpg
+│   └── ud_person_0
+│       ├── front.jpg
+│       └── side.jpg
+└── structure.txt
+
+50 directories, 28 files

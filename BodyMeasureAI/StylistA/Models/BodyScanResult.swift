@@ -24,23 +24,42 @@ struct BodyScanResult {
     let isPetite: Bool
     let userHeightCm: Double
     let gender: String
+    /// Optional name of the person being scanned. Empty string is omitted
+    /// from the upload payload so the backend keeps any prior value intact.
+    var userName: String = ""
+    /// Optional age (years). Zero is treated as "not provided" and omitted
+    /// from the upload.
+    var userAge: Int = 0
     /// Optional garment analysis (Part 2); included in export when set.
     var garmentAnalysis: GarmentTagModel? = nil
     /// Optional 3-angle measurements (front/side/back) from MultiAngleBodyScanView.
     var multiAngleMeasurements: MultiAngleMeasurements? = nil
+    /// Long-format measurements from the silhouette pipeline (LandmarkSlicer).
+    /// Empty until the iOS capture flow is upgraded to invoke the segmenter.
+    var capturedMeasurements: [CapturedMeasurement] = []
+    /// Per-scan extraction telemetry: parser version, coverage, warnings.
+    var extractionReport: ExtractionReport? = nil
 
     /// JSON structure for export (matches spec). Includes garmentAnalysis when present.
     var exportJSON: [String: Any] {
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let timestampString = iso.string(from: measurements.timestamp)
+        var userInputs: [String: Any] = [
+            "heightCm": userHeightCm,
+            "gender": gender,
+        ]
+        let trimmedName = userName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedName.isEmpty {
+            userInputs["name"] = trimmedName
+        }
+        if userAge > 0 {
+            userInputs["age"] = userAge
+        }
         var out: [String: Any] = [
             "sessionId": UUID().uuidString,
             "scanTimestamp": timestampString,
-            "userInputs": [
-                "heightCm": userHeightCm,
-                "gender": gender
-            ] as [String: Any],
+            "userInputs": userInputs,
             "bodyMeasurements": bodyMeasurementsExport,
             "bodyClassification": bodyClassificationExport,
             "captureConfidence": measurements.captureConfidence
@@ -63,6 +82,20 @@ struct BodyScanResult {
             }
             out["multiAngleBodyMeasurements"] = angleMeasurements
             out["multiAngleCaptureConfidence"] = angleConfidences
+        }
+        if !capturedMeasurements.isEmpty {
+            out["measurements"] = capturedMeasurements.map { m -> [String: Any] in
+                [
+                    "code": m.code,
+                    "value": m.value,
+                    "unit": m.unit,
+                    "confidence": m.confidence,
+                    "angle": m.angle,
+                ]
+            }
+        }
+        if let report = extractionReport {
+            out["extractionReport"] = report.exportJSON
         }
         return out
     }

@@ -17,12 +17,16 @@ struct ContentView: View {
             OnboardingView(
                 heightCm: $coordinator.bodyCaptureViewModel.userHeightCm,
                 gender: $coordinator.bodyCaptureViewModel.gender,
+                name: $coordinator.bodyCaptureViewModel.userName,
+                age: $coordinator.bodyCaptureViewModel.userAge,
                 onStartScan: {
                     coordinator.persistGender()
+                    coordinator.persistNameAndAge()
                     coordinator.beginScanFlow()
                 },
                 onStartGarmentScan: {
                     coordinator.persistGender()
+                    coordinator.persistNameAndAge()
                     coordinator.startGarmentScan()
                 },
                 onOpenHistory: { coordinator.openScanHistory() }
@@ -30,6 +34,7 @@ struct ContentView: View {
             .onAppear {
                 coordinator.navigationPathBinding = $navigationPath
                 coordinator.migrateLegacyGenderIfNeeded()
+                coordinator.loadPersistedNameAndAge()
             }
             .navigationDestination(for: FlowStep.self) { step in
                 switch step {

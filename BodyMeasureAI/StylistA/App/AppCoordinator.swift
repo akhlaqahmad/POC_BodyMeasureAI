@@ -88,6 +88,16 @@ final class AppCoordinator: ObservableObject {
         set { bodyCaptureViewModel.gender = newValue }
     }
 
+    var userName: String {
+        get { bodyCaptureViewModel.userName }
+        set { bodyCaptureViewModel.userName = newValue }
+    }
+
+    var userAge: Int {
+        get { bodyCaptureViewModel.userAge }
+        set { bodyCaptureViewModel.userAge = newValue }
+    }
+
     /// One-shot migration for users upgrading from a build that persisted a
     /// `isFemale` UserDefaults boolean. If the new `gender` key is unset and
     /// the legacy key exists, map it and delete the legacy key. Also persists
@@ -119,10 +129,31 @@ final class AppCoordinator: ObservableObject {
         UserDefaults.standard.set(gender.rawValue, forKey: "gender")
     }
 
+    /// Persist the user's name and age. Called from the onboarding screen
+    /// before navigating into the scan flow. Empty/zero values are stored as
+    /// such — the upload path filters them out before sending to the backend.
+    func persistNameAndAge() {
+        UserDefaults.standard.set(userName, forKey: "userName")
+        UserDefaults.standard.set(userAge, forKey: "userAge")
+    }
+
+    /// Restore name + age from UserDefaults at app launch so OnboardingView
+    /// pre-fills the fields. Mirrors the gender migration above.
+    func loadPersistedNameAndAge() {
+        if let stored = UserDefaults.standard.string(forKey: "userName") {
+            bodyCaptureViewModel.userName = stored
+        }
+        let storedAge = UserDefaults.standard.integer(forKey: "userAge")
+        if storedAge > 0 {
+            bodyCaptureViewModel.userAge = storedAge
+        }
+    }
+
     /// Request camera permission first; only then navigate to the guided
     /// 3-angle body capture (front / side / back).
     func requestCameraAndStartScan() {
         bodyCaptureViewModel.resetLiveState()
+        bodyCaptureViewModel.prepareForNewScan()
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
             appendToPath(.multiAngleCapture)
@@ -185,12 +216,14 @@ final class AppCoordinator: ObservableObject {
 
     func startBodyScan() {
         bodyCaptureViewModel.resetLiveState()
+        bodyCaptureViewModel.prepareForNewScan()
         appendToPath(.bodyCapture)
     }
 
     /// Start 3-angle body scan flow (front / side / back) without affecting existing single-angle flow.
     func startMultiAngleScan() {
         bodyCaptureViewModel.resetLiveState()
+        bodyCaptureViewModel.prepareForNewScan()
         appendToPath(.multiAngleCapture)
     }
 

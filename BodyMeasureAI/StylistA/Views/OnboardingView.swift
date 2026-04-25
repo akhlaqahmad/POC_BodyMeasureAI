@@ -10,11 +10,14 @@ import SwiftUI
 struct OnboardingView: View {
     @Binding var heightCm: Double
     @Binding var gender: Gender
+    @Binding var name: String
+    @Binding var age: Int
     var onStartScan: () -> Void
     var onStartGarmentScan: () -> Void
     var onOpenHistory: () -> Void
 
     @State private var heightText: String = ""
+    @State private var ageText: String = ""
     @State private var appeared = false
 
     var body: some View {
@@ -77,35 +80,88 @@ struct OnboardingView: View {
                 // Input card
                 VStack(spacing: SSpacing.lg) {
 
-                    // Height
+                    // Name
                     VStack(alignment: .leading, spacing: SSpacing.xs) {
-                        Text("HEIGHT")
+                        Text("NAME")
                             .font(SFont.label(11))
                             .tracking(2)
                             .foregroundStyle(Color("sTertiary"))
 
-                        HStack {
-                            TextField("170", text: $heightText)
-                                .font(SFont.display(32, weight: .light))
-                                .foregroundStyle(Color("sPrimary"))
-                                .keyboardType(.decimalPad)
-                                .onChange(of: heightText) { _, v in
-                                    if let val = Double(v), val > 0 { heightCm = val }
-                                }
-                                .onAppear {
-                                    if heightCm > 0 {
-                                        heightText = String(Int(heightCm))
-                                    }
-                                }
-
-                            Text("cm")
-                                .font(SFont.body(16))
-                                .foregroundStyle(Color("sTertiary"))
-                        }
+                        TextField("Who's being scanned?", text: $name)
+                            .font(SFont.display(22, weight: .light))
+                            .foregroundStyle(Color("sPrimary"))
+                            .textInputAutocapitalization(.words)
+                            .autocorrectionDisabled(true)
+                            .submitLabel(.next)
 
                         Rectangle()
                             .fill(Color("sBorder"))
                             .frame(height: 1)
+                    }
+
+                    // Age + Height (side by side, both numeric)
+                    HStack(spacing: SSpacing.lg) {
+                        VStack(alignment: .leading, spacing: SSpacing.xs) {
+                            Text("AGE")
+                                .font(SFont.label(11))
+                                .tracking(2)
+                                .foregroundStyle(Color("sTertiary"))
+
+                            HStack {
+                                TextField("30", text: $ageText)
+                                    .font(SFont.display(32, weight: .light))
+                                    .foregroundStyle(Color("sPrimary"))
+                                    .keyboardType(.numberPad)
+                                    .onChange(of: ageText) { _, v in
+                                        if let val = Int(v), val >= 1, val <= 120 {
+                                            age = val
+                                        } else if v.isEmpty {
+                                            age = 0
+                                        }
+                                    }
+                                    .onAppear {
+                                        if age > 0 { ageText = String(age) }
+                                    }
+
+                                Text("yrs")
+                                    .font(SFont.body(16))
+                                    .foregroundStyle(Color("sTertiary"))
+                            }
+
+                            Rectangle()
+                                .fill(Color("sBorder"))
+                                .frame(height: 1)
+                        }
+
+                        VStack(alignment: .leading, spacing: SSpacing.xs) {
+                            Text("HEIGHT")
+                                .font(SFont.label(11))
+                                .tracking(2)
+                                .foregroundStyle(Color("sTertiary"))
+
+                            HStack {
+                                TextField("170", text: $heightText)
+                                    .font(SFont.display(32, weight: .light))
+                                    .foregroundStyle(Color("sPrimary"))
+                                    .keyboardType(.decimalPad)
+                                    .onChange(of: heightText) { _, v in
+                                        if let val = Double(v), val > 0 { heightCm = val }
+                                    }
+                                    .onAppear {
+                                        if heightCm > 0 {
+                                            heightText = String(Int(heightCm))
+                                        }
+                                    }
+
+                                Text("cm")
+                                    .font(SFont.body(16))
+                                    .foregroundStyle(Color("sTertiary"))
+                            }
+
+                            Rectangle()
+                                .fill(Color("sBorder"))
+                                .frame(height: 1)
+                        }
                     }
 
                     // Gender

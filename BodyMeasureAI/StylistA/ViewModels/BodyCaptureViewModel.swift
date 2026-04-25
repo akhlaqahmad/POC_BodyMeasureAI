@@ -22,6 +22,21 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     @Published private(set) var capturedResult: BodyScanResult?
     /// Current pose observation for skeleton overlay (normalized 0–1). Nil when no body.
     @Published private(set) var currentObservation: VNHumanBodyPoseObservation?
+    /// Most recent camera frame, retained for the silhouette pipeline that
+    /// runs synchronously inside `capture()`. Reset on resetLiveState.
+    private var latestPixelBuffer: CVPixelBuffer?
+
+    /// Which angle the **next** capture button press will record. Set by the
+    /// multi-angle Views (TwoAngleScanView / MultiAngleBodyScanView) before
+    /// each capture step. Single-angle flow leaves this at "front".
+    @Published var captureAngle: String = "front"
+    /// Persistent silhouette masks accumulated across capture steps. Keys are
+    /// "front" / "side" / "back". Cleared by `prepareForNewScan()` at the
+    /// start of a flow — NOT by `resetLiveState()` which fires between steps.
+    private var maskByAngle: [String: SilhouetteMask] = [:]
+    /// Same key scheme as `maskByAngle`. Stored so the slicer has each
+    /// angle's keypoints for its per-mask shoulder/hip Y anchors.
+    private var observationByAngle: [String: VNHumanBodyPoseObservation] = [:]
     @Published var cameraDenied = false
     @Published private(set) var isStable: Bool = false
     /// Shown when body is detected but ankles are out of frame (full body must be visible).
@@ -51,6 +66,13 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
 
     @Published var userHeightCm: Double = 170
     @Published var gender: Gender = .female
+    /// Display name for the person being scanned. Surfaces in the admin UI
+    /// (sessions list, session detail) and the upload payload's `userInputs`.
+    /// Empty string is treated as "not provided" — backend column is nullable.
+    @Published var userName: String = ""
+    /// Age in years. 0 means "not provided" (backend column is nullable).
+    /// Bounded to 1–120 in the upload Zod; the input field clamps the same.
+    @Published var userAge: Int = 0
 
     // MARK: - Capture session
 
@@ -189,8 +211,14 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
         }
     }
 
-    /// Capture button tapped: run normalizer + classification, publish result.
-    func capture() {
+    /// Capture button tapped: run normalizer + classification, then run the
+    /// silhouette pipeline for the long-format taxonomy. Publishes the final
+    /// result with both legacy + long-format measurements populated.
+    ///
+    /// Async because segmentation runs ~300–500 ms on iPhone 14+ at .accurate.
+    /// Both call sites are already in async contexts (Task in the view button,
+    /// Task in startAutoCaptureCountdown).
+    func capture() async {
         // Only allow capture when UI says we can capture (green button).
         guard canCapture, let observation = currentObservation else {
             AppLog.capture.error(
@@ -218,15 +246,28 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
             waistProminenceScore: model.waistProminenceScore
         )
 
+        // Silhouette pipeline. Best-effort: if the pixel buffer wasn't
+        // retained (e.g. delegate hadn't pushed one yet) or segmentation
+        // fails, we still publish the legacy result with empty captured
+        // measurements and a warning in the report.
+        let pipelineOutcome = await runSilhouettePipeline(
+            pixelBuffer: latestPixelBuffer,
+            observation: observation,
+        )
+
         let result = BodyScanResult(
             measurements: model,
             positiveMessage: output.positiveMessage,
             verticalType: output.verticalType,
             isPetite: output.isPetite,
             userHeightCm: userHeightCm,
-            gender: gender.rawValue
+            gender: gender.rawValue,
+            userName: userName,
+            userAge: userAge,
+            capturedMeasurements: pipelineOutcome.measurements,
+            extractionReport: pipelineOutcome.report,
         )
-        
+
         AppLog.capture.info(
             """
             captured: conf=\(self.currentConfidence, format: .fixed(precision: 2), privacy: .public) \
@@ -235,11 +276,115 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
             M3=\(model.m3WaistCircumferenceCm, format: .fixed(precision: 1), privacy: .public) \
             V1=\(model.v1TorsoHeightCm, format: .fixed(precision: 1), privacy: .public) \
             V2=\(model.v2LegLengthCm, format: .fixed(precision: 1), privacy: .public) \
-            prominence=\(model.waistProminenceScore, format: .fixed(precision: 2), privacy: .public)
+            prominence=\(model.waistProminenceScore, format: .fixed(precision: 2), privacy: .public) \
+            taxonomy=\(pipelineOutcome.measurements.count, privacy: .public)
             """
         )
 
         capturedResult = result
+    }
+
+    /// Runs the segmenter for the **current angle** and then the slicer over
+    /// every angle captured so far in this scan flow. The first capture in a
+    /// flow only has the front mask (girths fall back to depth ratios at low
+    /// confidence). The second capture has both masks and produces real
+    /// ellipse-based girths at high confidence.
+    ///
+    /// Always returns a usable result — failures populate the warnings array
+    /// rather than throwing, so the legacy measurement path is never blocked.
+    private func runSilhouettePipeline(
+        pixelBuffer: CVPixelBuffer?,
+        observation: VNHumanBodyPoseObservation,
+    ) async -> (measurements: [CapturedMeasurement], report: ExtractionReport) {
+        guard let pixelBuffer = pixelBuffer else {
+            return ([], ExtractionReport(
+                parserVersion: 1,
+                coverage: nil,
+                warnings: ["no_pixel_buffer_at_capture"],
+                captureMs: nil,
+                segmentationMs: nil,
+            ))
+        }
+
+        let angle = self.captureAngle
+        let userHeightCm = self.userHeightCm
+        let gender = self.gender
+        let priorMasks = self.maskByAngle
+        let priorObservations = self.observationByAngle
+
+        let pipelineResult = await Task.detached(priority: .userInitiated) { () -> (mask: SilhouetteMask?, measurements: [CapturedMeasurement], warnings: [String], segMs: Int?) in
+            let segmenter = SilhouetteSegmenter()
+            let segStart = Date()
+            let newMask: SilhouetteMask
+            do {
+                newMask = try segmenter.segment(pixelBuffer: pixelBuffer, orientation: .up)
+            } catch {
+                return (nil, [], ["segmentation_failed"], nil)
+            }
+            let segMs = Int(Date().timeIntervalSince(segStart) * 1000)
+
+            // Compose the angle bundles available to the slicer this round.
+            var masks = priorMasks
+            var observations = priorObservations
+            masks[angle] = newMask
+            observations[angle] = observation
+
+            // The slicer wants a "front" + optional "side". If the user is
+            // capturing the side photo and we already have a front mask, pass
+            // both. If they're capturing front but a side mask was retained
+            // from a prior flow, we still pass it. The back mask isn't used
+            // for measurement geometry today (slicer takes only front+side).
+            let frontMask = masks["front"] ?? masks[angle]
+            let frontObs = observations["front"] ?? observations[angle]!
+            let sideMask = masks["side"]
+            let sideObs = observations["side"]
+
+            let slicer = LandmarkSlicer(userHeightCm: userHeightCm, gender: gender)
+            let measurements: [CapturedMeasurement]
+            do {
+                measurements = try slicer.slice(
+                    frontMask: frontMask ?? newMask,
+                    sideMask: sideMask,
+                    frontObservation: frontObs,
+                    sideObservation: sideObs,
+                )
+            } catch {
+                return (newMask, [], ["slicer_failed"], segMs)
+            }
+
+            var warnings = anatomicalSanityWarnings(measurements)
+            if sideMask == nil {
+                warnings.append("side_mask_missing_girths_use_depth_ratio_fallback")
+            }
+            return (newMask, measurements, warnings, segMs)
+        }.value
+
+        // Persist this angle's mask + observation for subsequent capture
+        // steps in the same flow. Done on the main actor since the maps are
+        // main-actor-isolated.
+        if let newMask = pipelineResult.mask {
+            self.maskByAngle[angle] = newMask
+            self.observationByAngle[angle] = observation
+        }
+
+        let report = ExtractionReport(
+            parserVersion: 1,
+            coverage: nil,
+            warnings: pipelineResult.warnings,
+            captureMs: nil,
+            segmentationMs: pipelineResult.segMs,
+        )
+        return (pipelineResult.measurements, report)
+    }
+
+    /// Clears multi-angle accumulators. Called by the coordinator at the
+    /// start of each new scan flow so masks from a prior session don't bleed
+    /// into the next one. NOT called between angle steps — the whole point
+    /// of the per-angle store is to survive `resetLiveState()` between steps.
+    func prepareForNewScan() {
+        maskByAngle.removeAll()
+        observationByAngle.removeAll()
+        captureAngle = "front"
     }
 
     /// Clear result so user can "Scan Again".
@@ -252,6 +397,7 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
     func resetLiveState() {
         AppLog.capture.info("resetLiveState: clearing pose/stability state for next capture")
         currentObservation = nil
+        latestPixelBuffer = nil
         isBodyDetected = false
         currentConfidence = 0
         stableFrameCount = 0
@@ -293,7 +439,7 @@ final class BodyCaptureViewModel: NSObject, ObservableObject {
                 }
             }
             self.autoCaptureCountdown = nil
-            self.capture()
+            await self.capture()
             if let result = self.capturedResult {
                 onCapture(result)
             } else {
@@ -363,9 +509,15 @@ extension BodyCaptureViewModel: AVCaptureVideoDataOutputSampleBufferDelegate {
             return
         }
 
+        // Retain a reference to the pixel buffer so the silhouette pipeline
+        // has an input image at the moment the user fires capture(). Sendable
+        // warnings here are intentional — the buffer is reference-counted by
+        // CoreVideo and outlives this delegate invocation.
+        let bufferForCapture = pixelBuffer
         Task { @MainActor in
             let confidence = self.averageKeypointConfidence(observation)
             self.currentObservation = observation
+            self.latestPixelBuffer = bufferForCapture
             self.currentConfidence = confidence
 
             // Looser ankle logic: at least one ankle with small confidence is enough
@@ -456,4 +608,29 @@ extension BodyCaptureViewModel: AVCaptureVideoDataOutputSampleBufferDelegate {
 private final class FrameCounter: @unchecked Sendable {
     var value = 0
     func increment() { value += 1 }
+}
+
+/// Anatomical-sanity warnings on the captured set. Returns warning codes the
+/// admin UI can flag and the user can be alerted to. Conservative — only
+/// warns on relationships that are unambiguous (hip > waist, etc.).
+fileprivate func anatomicalSanityWarnings(
+    _ measurements: [CapturedMeasurement]
+) -> [String] {
+    var byCode: [String: Double] = [:]
+    for m in measurements { byCode[m.code] = m.value }
+    var warnings: [String] = []
+
+    if let bust = byCode["bust_girth"], let underBust = byCode["under_bust_girth"], bust < underBust {
+        warnings.append("bust_smaller_than_under_bust")
+    }
+    if let hip = byCode["hip_girth"], let waist = byCode["waist_girth"], hip < waist {
+        warnings.append("hip_smaller_than_waist")
+    }
+    if let outsideLeg = byCode["outside_leg_length"], let insideLeg = byCode["inside_leg_length"], outsideLeg < insideLeg {
+        warnings.append("outside_leg_shorter_than_inside_leg")
+    }
+    if let backNeck = byCode["back_neck_height"], let hipH = byCode["hip_height"], backNeck < hipH {
+        warnings.append("back_neck_below_hip")
+    }
+    return warnings
 }
